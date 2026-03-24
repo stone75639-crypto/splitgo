@@ -612,8 +612,9 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
     <div class="fb" style="margin-bottom:10px;">
       <h2>帳本管理</h2>
       <div style="display:flex;gap:5px;">
-        <button class="ic-btn" id="btn-exp" title="匯出"><i class="fas fa-download"></i></button>
-        <button class="ic-btn" id="btn-imp" title="匯入"><i class="fas fa-upload"></i></button>
+        <button class="ic-btn" id="btn-xlsx" title="匯出 Excel" onclick="exportExcel()"><i class="fas fa-file-excel" style="color:#1D6F42"></i></button>
+        <button class="ic-btn" id="btn-exp" title="匯出備份 JSON"><i class="fas fa-download"></i></button>
+        <button class="ic-btn" id="btn-imp" title="匯入備份 JSON"><i class="fas fa-upload"></i></button>
       </div>
     </div>
     <div id="trips-list"></div>
@@ -1628,6 +1629,103 @@ function importTrip(){
   else toast('找不到此邀請碼','err');
 }
 function exportB(){const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`splitgo_${Date.now()}.json`;a.click();URL.revokeObjectURL(url);toast('備份已下載','ok');}
+
+/* ═══════════════════════════
+   匯出 Excel (CSV)
+   ═══════════════════════════ */
+function exportExcel(){
+  const t = tr();
+  if(!t){ toast('請先選擇帳本','err'); return; }
+
+  const catLabel = id => { const c=CATS.find(c=>c.id===id); return c?c.l:'其他'; };
+  const BOM = '\uFEFF'; // UTF-8 BOM，讓 Excel 正確顯示中文
+
+  // ── 工作表1：帳目明細 ──
+  const rows1 = [];
+  rows1.push(['帳本名稱', t.name]);
+  rows1.push(['幣種', t.currency]);
+  rows1.push(['成員', t.members.join('、')]);
+  rows1.push([]);
+  rows1.push(['日期','類別','品項','金額','幣種','折合TWD','付款人','分攤方式','分攤成員']);
+  t.expenses.forEach(e => {
+    const d = new Date(e.date);
+    const dateStr = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
+    const twd = Math.round(toTWD(e.amount, e.currency, t.rates));
+    const splitDesc = e.splitMode==='custom'
+      ? Object.entries(e.customAmts||{}).map(([m,v])=>`${m}:${v}`).join(' ')
+      : e.splits.join('、');
+    rows1.push([dateStr, catLabel(e.category), e.desc||'', e.amount, e.currency, twd, e.payer, e.splitMode==='even'?'均攤':'自訂', splitDesc]);
+  });
+  rows1.push([]);
+  rows1.push(['合計筆數', t.expenses.length]);
+  const totalTWD = t.expenses.reduce((s,e)=>s+toTWD(e.amount,e.currency,t.rates),0);
+  rows1.push(['總花費(TWD)', Math.round(totalTWD)]);
+
+  // ── 工作表2：每人結算 (同一CSV，用空行分隔) ──
+  rows1.push([]);
+  rows1.push([]);
+  rows1.push(['── 每人收支結算 ──']);
+  rows1.push(['成員','總付出(TWD)','應付金額(TWD)','淨額(TWD)','狀態']);
+
+  // 計算每人收支（與結算頁相同邏輯）
+  const paid = {};
+  const owe  = {};
+  t.members.forEach(m=>{ paid[m]=0; owe[m]=0; });
+  t.expenses.forEach(e=>{
+    const twd = toTWD(e.amount, e.currency, t.rates);
+    if(paid[e.payer]!==undefined) paid[e.payer]+=twd;
+    if(e.splitMode==='custom'){
+      Object.entries(e.customAmts||{}).forEach(([m,v])=>{
+        if(owe[m]!==undefined) owe[m]+=toTWD(v,e.currency,t.rates);
+      });
+    } else {
+      const share = twd/e.splits.length;
+      e.splits.forEach(m=>{ if(owe[m]!==undefined) owe[m]+=share; });
+    }
+  });
+  t.members.forEach(m=>{
+    const net = Math.round(paid[m]-owe[m]);
+    rows1.push([m, Math.round(paid[m]), Math.round(owe[m]), net, net>0?'待收回':net<0?'待付出':'已平帳']);
+  });
+
+  // ── 建議轉帳 ──
+  rows1.push([]);
+  rows1.push(['── 建議轉帳 ──']);
+  rows1.push(['付款方','收款方','金額(TWD)']);
+  // 簡易貪心演算法
+  const bal = {};
+  t.members.forEach(m=>{ bal[m]=Math.round(paid[m]-owe[m]); });
+  const creditors = t.members.filter(m=>bal[m]>0).sort((a,b)=>bal[b]-bal[a]);
+  const debtors   = t.members.filter(m=>bal[m]<0).sort((a,b)=>bal[a]-bal[b]);
+  let ci=0, di=0;
+  while(ci<creditors.length && di<debtors.length){
+    const c=creditors[ci], d=debtors[di];
+    const amt=Math.min(bal[c],-bal[d]);
+    if(amt>0) rows1.push([d, c, amt]);
+    bal[c]-=amt; bal[d]+=amt;
+    if(bal[c]<=0) ci++;
+    if(bal[d]>=0) di++;
+  }
+
+  // ── 轉成 CSV ──
+  const csv = rows1.map(row =>
+    row.map(cell => {
+      const s = String(cell===undefined||cell===null?'':cell);
+      return s.includes(',') || s.includes('"') || s.includes('\n')
+        ? '"' + s.replace(/"/g,'""') + '"'
+        : s;
+    }).join(',')
+  ).join('\r\n');
+
+  const blob = new Blob([BOM + csv], {type:'text/csv;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `${t.name}_帳目明細.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('Excel 檔案已下載 📊','ok');
+}
 function handleFile(ev){const file=ev.target.files[0];if(!file)return;const r=new FileReader();r.onload=e=>{try{const d=JSON.parse(e.target.result);if(d.trips){S.trips=d.trips;S.curTrip=d.curTrip||(d.trips[0]?.id||null);save();renderTrips();refreshHome();toast('備份已匯入','ok');}else toast('格式錯誤','err');}catch(e){toast('解析失敗','err');}};r.readAsText(file);}
 document.getElementById('btn-exp').addEventListener('click',exportB);
 document.getElementById('btn-imp').addEventListener('click',()=>document.getElementById('f-imp').click());
