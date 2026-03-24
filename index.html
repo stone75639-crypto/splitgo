@@ -1,0 +1,1583 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#00BCD4">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="SplitGo">
+<link rel="manifest" href="manifest.json">
+<title>SplitGo ⚡️</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+/* ── VARS ── */
+:root{
+  --pr:#00BCD4;--pr-d:#0097A7;--pr-l:#E0F7FA;--pr-ll:rgba(0,188,212,.1);
+  --acc:#FF6B6B;--ok:#4CAF50;--warn:#FF9800;--err:#F44336;--acc2:#4ECDC4;
+  --bg:#F0F4F8;--surf:#fff;--surf2:#F7F9FB;--bdr:#E2E8F0;
+  --t1:#1A202C;--t2:#718096;--th:#A0AEC0;
+  --sh:0 1px 4px rgba(0,0,0,.07);--sh2:0 3px 14px rgba(0,0,0,.1);
+  --r:12px;--rs:8px;
+  --nav:56px;--hdr:48px;
+}
+[data-theme=dark]{
+  --bg:#0D1117;--surf:#161B22;--surf2:#21262D;--bdr:#30363D;
+  --t1:#E6EDF3;--t2:#8B949E;--th:#6E7681;
+  --pr-l:rgba(0,188,212,.15);--pr-ll:rgba(0,188,212,.07);
+  --sh:0 1px 4px rgba(0,0,0,.4);--sh2:0 3px 14px rgba(0,0,0,.5);
+}
+/* ── RESET ── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{font-size:15px;-webkit-text-size-adjust:100%;touch-action:manipulation;}
+body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--t1);overflow-x:hidden;transition:background .25s,color .25s;}
+button{cursor:pointer;border:none;outline:none;font-family:inherit;background:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+input,select{font-family:inherit;outline:none;border:none;touch-action:manipulation;}
+::-webkit-scrollbar{width:2px;height:2px;}
+::-webkit-scrollbar-thumb{background:var(--bdr);}
+
+/* ── LAYOUT ── */
+#app{max-width:430px;margin:0 auto;height:100dvh;display:flex;flex-direction:column;overflow:hidden;}
+@media(min-width:768px){
+  #app{max-width:100%;flex-direction:row;}
+  #sidebar{width:68px;border-right:1px solid var(--bdr);background:var(--surf);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:2px;position:fixed;left:0;top:0;bottom:0;z-index:200;}
+  #main-wrap{margin-left:68px;flex:1;max-width:430px;display:flex;flex-direction:column;height:100dvh;}
+  #bot-nav{display:none;}
+}
+@media(max-width:767px){#sidebar{display:none;}}
+
+/* ── HEADER ── */
+#hdr{height:var(--hdr);background:var(--surf);border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;padding:0 12px;flex-shrink:0;z-index:50;}
+.logo{display:flex;align-items:center;gap:6px;font-size:17px;font-weight:800;color:var(--pr);}
+.logo i{font-size:15px;}
+.hdr-r{display:flex;gap:5px;}
+.ic-btn{width:32px;height:32px;border-radius:50%;background:var(--surf2);border:1px solid var(--bdr);color:var(--t2);display:flex;align-items:center;justify-content:center;font-size:13px;transition:all .2s;}
+.ic-btn:hover{background:var(--pr-l);color:var(--pr);}
+
+/* ── SCREENS ── */
+#main-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+.screen{display:none;flex:1;overflow-y:auto;padding-bottom:calc(var(--nav) + 4px);}
+.screen.active{display:flex;flex-direction:column;}
+#scr-home{overflow:hidden;padding-bottom:0;}
+
+/* ── BOTTOM NAV ── */
+#bot-nav{height:var(--nav);background:var(--surf);border-top:1px solid var(--bdr);display:flex;align-items:center;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;z-index:100;padding:0 2px;flex-shrink:0;}
+.nb{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px;background:none;color:var(--th);font-size:9.5px;font-weight:500;transition:all .2s;border-radius:10px;}
+.nb i{font-size:18px;}
+.nb.on{color:var(--pr);}
+.nb.on i{transform:scale(1.1);}
+
+/* ── SIDEBAR ── */
+.sb-b{width:48px;height:48px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--th);font-size:8.5px;font-weight:500;transition:all .2s;cursor:pointer;}
+.sb-b i{font-size:19px;}
+.sb-b.on{color:var(--pr);background:var(--pr-l);}
+.sb-b:hover:not(.on){background:var(--surf2);}
+
+/* ════════════════════════════════
+   HOME — COMPACT QUICK-ENTRY
+   ════════════════════════════════ */
+/* Event bar */
+#ev-bar{background:var(--surf);border-bottom:1px solid var(--bdr);padding:7px 12px;display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.ev-name{font-size:13px;font-weight:700;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ev-meta{font-size:10px;color:var(--t2);}
+.ev-sw-btn{background:var(--pr);color:#fff;border-radius:7px;padding:4px 9px;font-size:11px;font-weight:700;white-space:nowrap;}
+
+/* Form container: fills remaining height, no scroll */
+#entry-form{flex:1;display:flex;flex-direction:column;gap:0;overflow:hidden;padding:6px 10px 0;}
+
+/* ── AMOUNT + NUMPAD ROW ── */
+.top-row{display:flex;gap:8px;flex-shrink:0;margin-bottom:6px;}
+
+/* Amount display (left side) — compact */
+.amt-box{
+  flex:1;background:var(--surf);border-radius:var(--r);border:1.5px solid var(--bdr);
+  padding:6px 10px;display:flex;flex-direction:column;justify-content:space-between;
+  min-width:0;
+}
+.amt-label{font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px;}
+.amt-val{font-size:22px;font-weight:900;color:var(--t1);line-height:1.15;letter-spacing:-1px;white-space:nowrap;overflow:hidden;}
+.amt-val.ph{color:var(--th);}
+.amt-twd{font-size:9.5px;color:var(--t2);min-height:12px;margin-top:1px;}
+.amt-cur-row{display:flex;align-items:center;flex-wrap:wrap;gap:3px;margin-top:5px;}
+.cur-pill{padding:2px 7px;border-radius:10px;border:1px solid var(--bdr);background:var(--surf2);color:var(--t2);font-size:9.5px;font-weight:700;cursor:pointer;transition:all .12s;touch-action:manipulation;}
+.cur-pill.on{background:var(--pr);border-color:var(--pr);color:#fff;}
+
+/* Numpad (right side) — bigger */
+#numpad{
+  flex:1;flex-shrink:0;background:var(--surf);border-radius:var(--r);border:1.5px solid var(--bdr);
+  padding:5px;display:grid;grid-template-columns:repeat(3,1fr);gap:4px;
+}
+.np{
+  height:44px;border-radius:8px;background:var(--surf2);border:1px solid var(--bdr);
+  font-size:clamp(16px,4.5vw,22px);;font-weight:500;color:var(--t1);display:flex;align-items:center;justify-content:center;
+  transition:background .1s,border-color .1s;user-select:none;touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+}
+.np:active{background:var(--pr-l);border-color:var(--pr);}
+.np.wide{grid-column:span 2;}
+.np.del i{font-size:16px;color:var(--t2);}
+.np.ok{background:linear-gradient(135deg,var(--pr),var(--pr-d));color:#fff;border-color:var(--pr);font-size:14px;font-weight:700;}
+.np.ok:active{opacity:.85;}
+
+/* ── COMPACT ROWS ── */
+.c-row{
+  background:var(--surf);border-radius:var(--r);border:1.5px solid var(--bdr);
+  padding:7px 10px;flex-shrink:0;margin-bottom:5px;
+}
+.c-row:last-of-type{margin-bottom:0;}
+.rl{font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;display:flex;align-items:center;justify-content:space-between;}
+
+/* Category chips */
+.cat-row{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;padding-bottom:1px;}
+.cat-row::-webkit-scrollbar{display:none;}
+.cc{display:flex;align-items:center;gap:4px;padding:4px 9px;border-radius:10px;border:1.5px solid var(--bdr);background:var(--surf2);cursor:pointer;transition:all .12s;flex-shrink:0;font-size:12px;color:var(--t2);font-weight:500;touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
+.cc.on{border-color:var(--pr);background:var(--pr-l);color:var(--pr);font-weight:700;}
+
+/* Desc */
+.di{width:100%;background:transparent;color:var(--t1);font-size:13px;font-weight:500;padding:0;}
+.di::placeholder{color:var(--th);}
+
+/* People chips */
+.people-scr{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;padding-bottom:1px;}
+.people-scr::-webkit-scrollbar{display:none;}
+.pc{
+  display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 7px;
+  border-radius:10px;border:2px solid var(--bdr);background:var(--surf2);
+  cursor:pointer;transition:all .13s;flex-shrink:0;min-width:48px;
+  user-select:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+}
+.pav{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;}
+.pnm{font-size:9.5px;font-weight:500;color:var(--t2);text-align:center;white-space:nowrap;max-width:44px;overflow:hidden;text-overflow:ellipsis;}
+.pc.payer{border-color:var(--acc);}
+.pc.payer .pnm{color:var(--acc);font-weight:700;}
+.pc.payer .pav{box-shadow:0 0 0 2px rgba(255,107,107,.35);}
+.pc.spl{border-color:var(--pr);}
+.pc.spl .pnm{color:var(--pr);font-weight:700;}
+.pc.spl .pav{box-shadow:0 0 0 2px rgba(0,188,212,.3);}
+.pc.off{opacity:.38;}
+/* custom split amount badge */
+.pc .camt{font-size:8.5px;font-weight:700;color:var(--pr);margin-top:1px;white-space:nowrap;}
+
+/* Split mode toggle */
+.split-mode-btns{display:flex;gap:4px;}
+.sm-btn{padding:3px 8px;border-radius:7px;border:1.5px solid var(--bdr);background:var(--surf2);font-size:9.5px;font-weight:700;color:var(--t2);cursor:pointer;transition:all .15s;touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
+.sm-btn.on{background:var(--pr);border-color:var(--pr);color:#fff;}
+
+/* ── SUBMIT ROW ── */
+#sub-row{
+  padding:6px 10px 8px;background:var(--surf);border-top:1px solid var(--bdr);
+  flex-shrink:0;display:flex;gap:6px;align-items:center;
+}
+#btn-sub{flex:1;padding:11px;border-radius:10px;background:linear-gradient(135deg,var(--pr),var(--pr-d));color:#fff;font-size:14px;font-weight:700;box-shadow:0 3px 12px rgba(0,188,212,.4);transition:all .2s;display:flex;align-items:center;justify-content:center;gap:6px;}
+#btn-sub:active{transform:scale(.97);}
+#btn-cpy{width:40px;height:40px;border-radius:9px;background:var(--surf2);border:1.5px solid var(--bdr);color:var(--t2);font-size:14px;display:flex;align-items:center;justify-content:center;}
+#btn-cpy:hover{border-color:var(--pr);color:var(--pr);}
+
+/* No event */
+#no-ev{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center;}
+#no-ev .big{font-size:56px;display:block;margin-bottom:12px;}
+#no-ev h2{font-size:20px;font-weight:800;color:var(--pr);margin-bottom:7px;}
+#no-ev p{font-size:13px;color:var(--t2);line-height:1.65;margin-bottom:20px;}
+
+/* ════════════════════════════════
+   CUSTOM SPLIT OVERLAY
+   ════════════════════════════════ */
+#custom-split-panel{
+  position:absolute;bottom:0;left:0;right:0;
+  background:var(--surf);border-top:2px solid var(--bdr);
+  border-radius:18px 18px 0 0;
+  z-index:300;transform:translateY(100%);
+  transition:transform .32s cubic-bezier(.32,.72,0,1);
+  padding:0 12px 16px;
+  box-shadow:0 -4px 24px rgba(0,0,0,.13);
+}
+#custom-split-panel.open{transform:translateY(0);}
+.csp-handle{width:34px;height:3px;background:var(--bdr);border-radius:2px;margin:10px auto 10px;}
+.csp-title{font-size:13px;font-weight:700;color:var(--t1);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;}
+.csp-tabs{display:flex;gap:4px;margin-bottom:10px;}
+.csp-tab{flex:1;padding:6px;border-radius:8px;border:1.5px solid var(--bdr);background:var(--surf2);font-size:12px;font-weight:700;color:var(--t2);text-align:center;cursor:pointer;transition:all .15s;}
+.csp-tab.on{background:var(--pr);border-color:var(--pr);color:#fff;}
+.csp-member-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--bdr);}
+.csp-member-row:last-child{border-bottom:none;}
+.csp-av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;}
+.csp-name{flex:1;font-size:13px;font-weight:600;}
+.csp-hint{font-size:10px;color:var(--t2);flex-shrink:0;min-width:52px;text-align:right;}
+.csp-inp{width:80px;padding:5px 7px;border-radius:7px;border:1.5px solid var(--bdr);background:var(--surf2);color:var(--t1);font-size:13px;font-weight:700;text-align:right;flex-shrink:0;}
+.csp-inp:focus{border-color:var(--pr);}
+.csp-cb{width:22px;height:22px;border-radius:6px;border:2px solid var(--bdr);display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;transition:all .15s;}
+.csp-cb.on{background:var(--pr);border-color:var(--pr);color:#fff;}
+.csp-sum-row{display:flex;justify-content:space-between;padding:8px 0 0;font-size:12px;}
+.csp-sum-label{color:var(--t2);font-weight:500;}
+.csp-sum-val{font-weight:800;}
+.csp-sum-val.ok{color:var(--ok);}
+.csp-sum-val.err{color:var(--err);}
+
+/* ════════════════════════════════
+   OTHER SCREENS
+   ════════════════════════════════ */
+.sp{padding:10px 12px;}
+.sp h2{font-size:17px;font-weight:800;margin-bottom:10px;}
+/* List */
+.exp-item{background:var(--surf);border-radius:var(--r);border:1px solid var(--bdr);padding:11px 12px;margin-bottom:7px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:all .18s;}
+.exp-item:hover{box-shadow:var(--sh2);transform:translateY(-1px);}
+.eico{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.einf{flex:1;min-width:0;}
+.etit{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px;}
+.emeta{font-size:10px;color:var(--t2);display:flex;gap:6px;align-items:center;}
+.ptag{background:var(--pr-l);color:var(--pr);padding:1px 6px;border-radius:6px;font-size:9.5px;font-weight:700;}
+.eamt{text-align:right;}
+.eamt .a{font-size:14px;font-weight:700;}
+.eamt .c{font-size:9.5px;color:var(--t2);}
+.eamt .t{font-size:9.5px;color:var(--th);}
+
+/* Summary chips */
+.sum-chips{display:flex;gap:7px;margin-bottom:10px;flex-wrap:wrap;}
+.sum-chip{background:var(--surf);border:1px solid var(--bdr);border-radius:10px;padding:7px 11px;}
+.sum-chip .sv{font-size:15px;font-weight:800;color:var(--pr);}
+.sum-chip .sl{font-size:9.5px;color:var(--t2);}
+
+/* Settlement */
+.bal-card{background:var(--surf);border-radius:var(--r);border:1px solid var(--bdr);margin-bottom:10px;overflow:hidden;}
+.bc-hdr{padding:9px 12px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;}
+.bc-hdr-t{font-size:10px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;}
+.bal-row{display:flex;align-items:center;padding:10px 12px;border-bottom:1px solid var(--bdr);gap:9px;}
+.bal-row:last-child{border-bottom:none;}
+.bav{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;}
+.binf{flex:1;}
+.bnm{font-size:13px;font-weight:600;}
+.bsub{font-size:10px;color:var(--t2);margin-top:1px;}
+.bnet{font-size:15px;font-weight:800;text-align:right;}
+.bpos{color:var(--ok);}
+.bneg{color:var(--err);}
+
+.settle-sec{font-size:13px;font-weight:700;color:var(--t2);margin-bottom:7px;display:flex;align-items:center;justify-content:space-between;}
+.si{background:var(--surf);border-radius:var(--r);border:1px solid var(--bdr);margin-bottom:7px;padding:12px;display:flex;align-items:center;gap:10px;}
+.si.done{opacity:.38;}
+.sav{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0;}
+.smid{flex:1;text-align:center;}
+.sarr{display:flex;align-items:center;justify-content:center;gap:5px;margin-bottom:3px;font-size:11px;color:var(--t2);font-weight:600;}
+.samt{font-size:16px;font-weight:800;color:var(--acc);}
+.stwd{font-size:9.5px;color:var(--th);}
+.done-pill{background:var(--ok);color:#fff;padding:4px 10px;border-radius:12px;font-size:10px;font-weight:700;}
+.mk-btn{border:1.5px solid var(--bdr);border-radius:7px;padding:5px 10px;font-size:10.5px;font-weight:700;color:var(--t2);cursor:pointer;transition:all .2s;}
+.mk-btn:hover{border-color:var(--ok);color:var(--ok);}
+.se-empty{text-align:center;padding:36px 20px;}
+.se-empty .e{font-size:48px;display:block;margin-bottom:10px;}
+.se-empty h3{font-size:17px;font-weight:700;margin-bottom:5px;}
+.se-empty p{font-size:12px;color:var(--t2);}
+
+/* Analytics */
+.tab-bar{display:flex;background:var(--surf2);border-radius:10px;padding:3px;gap:3px;margin-bottom:12px;border:1px solid var(--bdr);}
+.tb{flex:1;padding:7px;border-radius:7px;font-size:12px;font-weight:500;color:var(--t2);background:none;transition:all .18s;cursor:pointer;}
+.tb.on{background:var(--surf);color:var(--pr);font-weight:700;box-shadow:var(--sh);}
+.cw{background:var(--surf);border-radius:var(--r);border:1px solid var(--bdr);padding:12px;margin-bottom:10px;}
+.cw canvas{max-height:220px;}
+.lgd-r{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bdr);}
+.lgd-r:last-child{border-bottom:none;}
+.lgd-l{display:flex;align-items:center;gap:7px;}
+.lgd-dot{width:10px;height:10px;border-radius:3px;flex-shrink:0;}
+.lgd-lbl{font-size:12px;font-weight:500;}
+.lgd-v{font-size:12px;font-weight:700;}
+.pb-wrap{margin-bottom:10px;}
+.pb-hdr{display:flex;justify-content:space-between;margin-bottom:4px;font-size:12px;}
+.pb-nm{font-weight:600;}
+.pb-a{color:var(--t2);}
+.pb-tr{height:8px;background:var(--surf2);border-radius:4px;overflow:hidden;border:1px solid var(--bdr);}
+.pb-f{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--pr),var(--acc2));transition:width .9s cubic-bezier(.34,1.56,.64,1);}
+
+/* Trips */
+.tc{background:var(--surf);border-radius:var(--r);border:1px solid var(--bdr);padding:13px;margin-bottom:8px;cursor:pointer;transition:all .18s;display:flex;align-items:center;gap:10px;}
+.tc:hover{box-shadow:var(--sh2);transform:translateY(-1px);}
+.tc.act{border:2px solid var(--pr);background:var(--pr-l);}
+.tci{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--pr),var(--pr-d));display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.tcinf{flex:1;min-width:0;}
+.tcnm{font-size:14px;font-weight:700;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tcm{font-size:10.5px;color:var(--t2);}
+.tcr{text-align:right;}
+.tctot{font-size:14px;font-weight:700;color:var(--pr);}
+.ntb{width:100%;padding:13px;border-radius:var(--r);border:2px dashed var(--bdr);background:transparent;color:var(--t2);font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .18s;cursor:pointer;}
+.ntb:hover{border-color:var(--pr);color:var(--pr);background:var(--pr-ll);}
+
+/* ── OVERLAY / SHEET ── */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(3px);z-index:500;display:flex;align-items:flex-end;justify-content:center;opacity:0;visibility:hidden;transition:all .25s;}
+.ov.open{opacity:1;visibility:visible;}
+.sh{background:var(--surf);border-radius:18px 18px 0 0;width:100%;max-width:430px;max-height:88vh;overflow-y:auto;transform:translateY(100%);transition:transform .32s cubic-bezier(.32,.72,0,1);padding-bottom:env(safe-area-inset-bottom,12px);}
+.ov.open .sh{transform:translateY(0);}
+.sh-hdl{width:34px;height:3px;background:var(--bdr);border-radius:2px;margin:10px auto 0;}
+.sh-hdr{padding:10px 14px 9px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--surf);z-index:10;}
+.sh-tit{font-size:15px;font-weight:700;}
+.sh-cls{width:28px;height:28px;border-radius:50%;background:var(--surf2);border:1px solid var(--bdr);color:var(--t2);display:flex;align-items:center;justify-content:center;font-size:12px;}
+.sh-body{padding:14px;}
+@media(min-width:768px){.ov{align-items:center;}.sh{border-radius:16px;max-height:82vh;}}
+
+/* ── FORMS ── */
+.fg{margin-bottom:12px;}
+.fl{font-size:10px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;display:block;}
+.fi{width:100%;padding:10px 12px;border:1.5px solid var(--bdr);border-radius:9px;background:var(--surf2);color:var(--t1);font-size:14px;transition:all .2s;}
+.fi:focus{border-color:var(--pr);background:var(--surf);box-shadow:0 0 0 3px var(--pr-l);}
+.fi::placeholder{color:var(--th);}
+select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%23718096' d='M5 7L0 2h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;}
+
+/* Member list in modal */
+.ml{display:flex;flex-direction:column;gap:6px;margin-bottom:10px;}
+.mi{display:flex;align-items:center;gap:8px;background:var(--surf2);border-radius:8px;padding:8px 10px;border:1px solid var(--bdr);}
+.mi .mav{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;}
+.mi .mnm{flex:1;font-size:13px;font-weight:600;}
+.mi .mdel{width:24px;height:24px;border-radius:50%;background:rgba(244,67,54,.1);color:var(--err);display:flex;align-items:center;justify-content:center;font-size:11px;cursor:pointer;}
+.mi .mdel:hover{background:var(--err);color:#fff;}
+.amr{display:flex;gap:7px;}
+
+/* Rate table */
+.rr{display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--bdr);}
+.rr:last-child{border-bottom:none;}
+.rl2{font-size:12px;font-weight:600;}
+.rinp{width:82px;padding:5px 8px;border:1.5px solid var(--bdr);border-radius:7px;background:var(--surf2);color:var(--t1);font-size:12px;font-weight:700;text-align:right;}
+.rinp:focus{border-color:var(--pr);}
+
+/* Invite box */
+.inv-box{background:var(--pr-l);border:2px dashed var(--pr);border-radius:10px;padding:12px;text-align:center;margin-top:3px;}
+.inv-code{font-size:26px;font-weight:900;letter-spacing:7px;color:var(--pr);}
+.inv-hint{font-size:10.5px;color:var(--t2);margin-top:3px;}
+
+/* Detail sheet */
+.det-hero{text-align:center;padding:16px 0 10px;}
+.det-e{font-size:48px;display:block;margin-bottom:8px;}
+.det-a{font-size:30px;font-weight:900;color:var(--pr);letter-spacing:-1px;}
+.det-t{font-size:12px;color:var(--t2);margin-top:2px;}
+.dr{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--bdr);}
+.dr:last-child{border-bottom:none;}
+.dk{font-size:12px;color:var(--t2);}
+.dv{font-size:13px;font-weight:600;}
+.split-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px;}
+.stag{display:inline-flex;align-items:center;gap:4px;background:var(--surf2);border:1px solid var(--bdr);border-radius:14px;padding:3px 8px 3px 5px;font-size:11px;}
+.stag .mav2{width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;color:#fff;}
+
+/* Toast */
+#tw{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:5px;pointer-events:none;width:88%;max-width:300px;}
+.toast{background:var(--t1);color:var(--surf);padding:9px 16px;border-radius:20px;font-size:12px;font-weight:500;box-shadow:var(--sh2);display:flex;align-items:center;gap:7px;animation:tIn .28s cubic-bezier(.34,1.56,.64,1);}
+.toast.ok{background:var(--ok);}
+.toast.err{background:var(--err);}
+@keyframes tIn{from{opacity:0;transform:translateY(-14px) scale(.9);}to{opacity:1;transform:none;}}
+
+/* Utils */
+.btn{padding:10px 16px;border-radius:9px;font-size:13px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:all .18s;cursor:pointer;}
+.btn-pr{background:linear-gradient(135deg,var(--pr),var(--pr-d));color:#fff;box-shadow:0 2px 10px rgba(0,188,212,.3);}
+.btn-out{background:transparent;border:1.5px solid var(--bdr);color:var(--t2);}
+.btn-out:hover{border-color:var(--pr);color:var(--pr);}
+.btn-danger{background:var(--err);color:#fff;}
+.btn-block{width:100%;}
+.btn-sm{padding:6px 12px;font-size:11.5px;border-radius:7px;}
+.divider{height:1px;background:var(--bdr);margin:12px 0;}
+.mt8{margin-top:8px;}
+.mt12{margin-top:12px;}
+.fb{display:flex;align-items:center;justify-content:space-between;}
+.hidden{display:none!important;}
+
+/* Avatar colors */
+.av0{background:linear-gradient(135deg,#00BCD4,#0097A7)!important;}
+.av1{background:linear-gradient(135deg,#FF6B6B,#ee5a24)!important;}
+.av2{background:linear-gradient(135deg,#A29BFE,#6c5ce7)!important;}
+.av3{background:linear-gradient(135deg,#55EFC4,#00b894)!important;}
+.av4{background:linear-gradient(135deg,#FDCB6E,#e17055)!important;}
+.av5{background:linear-gradient(135deg,#74B9FF,#0984e3)!important;}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- SIDEBAR desktop -->
+<nav id="sidebar">
+  <div class="logo" style="margin-bottom:14px;flex-direction:column;gap:3px;font-size:12px;"><i class="fas fa-bolt" style="font-size:20px;"></i>Split</div>
+  <button class="sb-b on" data-sc="home" onclick="go('home')"><i class="fas fa-plus-circle"></i>記帳</button>
+  <button class="sb-b" data-sc="list" onclick="go('list')"><i class="fas fa-receipt"></i>帳目</button>
+  <button class="sb-b" data-sc="settle" onclick="go('settle')"><i class="fas fa-scale-balanced"></i>結算</button>
+  <button class="sb-b" data-sc="analytics" onclick="go('analytics')"><i class="fas fa-chart-pie"></i>分析</button>
+  <button class="sb-b" data-sc="trips" onclick="go('trips')"><i class="fas fa-layer-group"></i>帳本</button>
+  <div style="flex:1"></div>
+  <button class="sb-b" id="sb-dark"><i class="fas fa-moon"></i></button>
+</nav>
+
+<div id="main-wrap">
+<header id="hdr">
+  <div class="logo"><i class="fas fa-bolt"></i>SplitGo</div>
+  <div class="hdr-r">
+    <button class="ic-btn" id="btn-dark"><i class="fas fa-moon"></i></button>
+    <button class="ic-btn" onclick="go('trips')"><i class="fas fa-layer-group"></i></button>
+    <button class="ic-btn" id="btn-share"><i class="fas fa-share-nodes"></i></button>
+  </div>
+</header>
+
+<!-- ══ HOME ══ -->
+<div class="screen active" id="scr-home">
+  <!-- Event Bar -->
+  <div id="ev-bar">
+    <div style="flex:1;min-width:0;">
+      <div class="ev-name" id="ev-name-bar">選擇行程帳本</div>
+      <div class="ev-meta" id="ev-meta-bar">尚未選擇</div>
+    </div>
+    <button class="ev-sw-btn" onclick="go('trips')">切換帳本</button>
+  </div>
+
+  <!-- No event -->
+  <div id="no-ev" class="hidden">
+    <span class="big">✈️</span>
+    <h2>建立你的第一個帳本！</h2>
+    <p>先到「帳本」頁面建立行程<br>再回來就能極速記帳 ⚡️</p>
+    <button class="btn btn-pr" onclick="go('trips')"><i class="fas fa-plus"></i> 建立帳本</button>
+  </div>
+
+  <!-- Entry Form -->
+  <div id="entry-form">
+
+    <!-- Top: Amount + Numpad side by side -->
+    <div class="top-row">
+      <!-- Amount box -->
+      <div class="amt-box">
+        <div>
+          <div class="amt-label">金額</div>
+          <div class="amt-val ph" id="amt-disp">0</div>
+          <div class="amt-twd" id="amt-twd"></div>
+        </div>
+        <div class="amt-cur-row" id="cur-row">
+          <div class="cur-pill on" data-c="TWD" onclick="setCur('TWD')">TWD</div>
+          <div class="cur-pill" data-c="JPY" onclick="setCur('JPY')">JPY</div>
+          <div class="cur-pill" data-c="USD" onclick="setCur('USD')">USD</div>
+          <div class="cur-pill" data-c="EUR" onclick="setCur('EUR')">EUR</div>
+          <div class="cur-pill" data-c="KRW" onclick="setCur('KRW')">KRW</div>
+          <div class="cur-pill" data-c="HKD" onclick="setCur('HKD')">HKD</div>
+          <div class="cur-pill" data-c="GBP" onclick="setCur('GBP')">GBP</div>
+        </div>
+      </div>
+      <!-- Numpad -->
+      <div id="numpad">
+        <button class="np" data-n="7">7</button>
+        <button class="np" data-n="8">8</button>
+        <button class="np" data-n="9">9</button>
+        <button class="np" data-n="4">4</button>
+        <button class="np" data-n="5">5</button>
+        <button class="np" data-n="6">6</button>
+        <button class="np" data-n="1">1</button>
+        <button class="np" data-n="2">2</button>
+        <button class="np" data-n="3">3</button>
+        <button class="np wide" data-n="0">0</button>
+        <button class="np" data-n=".">.</button>
+        <button class="np del" id="np-del"><i class="fas fa-delete-left"></i></button>
+      </div>
+    </div>
+
+    <!-- Category -->
+    <div class="c-row">
+      <div class="rl">類別</div>
+      <div class="cat-row" id="cat-row"></div>
+    </div>
+
+    <!-- Desc -->
+    <div class="c-row">
+      <div class="rl">品項</div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <i class="fas fa-pen" style="color:var(--th);font-size:11px;flex-shrink:0;"></i>
+        <input class="di" id="di" type="text" placeholder="品項名稱（可省略）" autocomplete="off">
+      </div>
+    </div>
+
+    <!-- Payer -->
+    <div class="c-row">
+      <div class="rl">誰付的</div>
+      <div class="people-scr" id="payer-row"></div>
+    </div>
+
+    <!-- Split -->
+    <div class="c-row" style="margin-bottom:5px;">
+      <div class="rl">
+        <span>誰要分攤</span>
+        <div style="display:flex;gap:4px;align-items:center;">
+          <div class="split-mode-btns">
+            <button class="sm-btn on" id="sm-even" onclick="setSplitMode('even')">均攤</button>
+            <button class="sm-btn" id="sm-custom" onclick="setSplitMode('custom')">自訂</button>
+          </div>
+          <button class="sm-btn" id="all-spl-btn" onclick="togAllSplit()">全選</button>
+        </div>
+      </div>
+      <div class="people-scr" id="split-row"></div>
+    </div>
+
+  </div><!-- end entry-form -->
+
+  <!-- Submit -->
+  <div id="sub-row">
+    <button id="btn-cpy" onclick="copyLast()" title="複製上筆"><i class="fas fa-copy"></i></button>
+    <button id="btn-sub" onclick="doSubmit()"><i class="fas fa-check"></i> 記帳完成</button>
+  </div>
+
+  <!-- Custom Split Panel (slides up over content) -->
+  <div id="custom-split-panel">
+    <div class="csp-handle"></div>
+    <div class="csp-title">
+      <span>自訂分攤金額</span>
+      <button onclick="closeCustomPanel()" style="font-size:13px;color:var(--t2);"><i class="fas fa-chevron-down"></i></button>
+    </div>
+    <div class="csp-tabs">
+      <button class="csp-tab on" id="csp-tab-amt" onclick="setCspTab('amt')">指定金額</button>
+      <button class="csp-tab" id="csp-tab-pct" onclick="setCspTab('pct')">百分比</button>
+    </div>
+    <div id="csp-members"></div>
+    <div class="csp-sum-row">
+      <span class="csp-sum-label" id="csp-sum-label">分攤總計</span>
+      <span class="csp-sum-val" id="csp-sum-val">NT$0</span>
+    </div>
+    <button class="btn btn-pr btn-block mt8" style="margin-top:8px;" onclick="applyCustomSplit()">
+      <i class="fas fa-check"></i> 套用分攤
+    </button>
+  </div>
+
+</div><!-- end scr-home -->
+
+<!-- ══ LIST ══ -->
+<div class="screen" id="scr-list">
+  <div class="sp">
+    <div class="fb" style="margin-bottom:8px;"><h2>帳目明細</h2></div>
+    <div class="sum-chips" id="sum-chips"></div>
+    <div id="exp-list"></div>
+  </div>
+</div>
+
+<!-- ══ SETTLE ══ -->
+<div class="screen" id="scr-settle">
+  <div class="sp">
+    <div class="fb"><h2>結算</h2><span id="set-badge" style="font-size:11px;background:var(--pr-l);color:var(--pr);padding:3px 9px;border-radius:12px;font-weight:700;"></span></div>
+    <div style="height:10px;"></div>
+    <div class="bal-card"><div class="bc-hdr"><span class="bc-hdr-t">每人收支</span></div><div id="bal-list"></div></div>
+    <div class="settle-sec"><span>建議轉帳</span><span id="set-cnt" style="font-size:11px;font-weight:500;color:var(--t2);"></span></div>
+    <div id="set-list"></div>
+  </div>
+</div>
+
+<!-- ══ ANALYTICS ══ -->
+<div class="screen" id="scr-analytics">
+  <div class="sp">
+    <h2>分析報表</h2>
+    <div class="tab-bar">
+      <button class="tb on" data-at="cat" onclick="sAnaTab('cat')">類別</button>
+      <button class="tb" data-at="time" onclick="sAnaTab('time')">時間</button>
+      <button class="tb" data-at="person" onclick="sAnaTab('person')">每人</button>
+    </div>
+    <div id="at-cat">
+      <div class="cw"><canvas id="ch-cat"></canvas></div>
+      <div style="background:var(--surf);border-radius:var(--r);border:1px solid var(--bdr);padding:0 12px;" id="cat-lgd"></div>
+    </div>
+    <div id="at-time" class="hidden"><div class="cw"><canvas id="ch-time"></canvas></div></div>
+    <div id="at-person" class="hidden"><div style="background:var(--surf);border-radius:var(--r);border:1px solid var(--bdr);padding:12px;" id="per-rank"></div></div>
+  </div>
+</div>
+
+<!-- ══ TRIPS ══ -->
+<div class="screen" id="scr-trips">
+  <div class="sp">
+    <div class="fb" style="margin-bottom:10px;">
+      <h2>帳本管理</h2>
+      <div style="display:flex;gap:5px;">
+        <button class="ic-btn" id="btn-exp" title="匯出"><i class="fas fa-download"></i></button>
+        <button class="ic-btn" id="btn-imp" title="匯入"><i class="fas fa-upload"></i></button>
+      </div>
+    </div>
+    <div id="trips-list"></div>
+    <button class="ntb" onclick="openNewTrip()"><i class="fas fa-plus"></i> 建立新帳本</button>
+    <div class="divider"></div>
+    <div style="font-size:10.5px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px;">匯入行程</div>
+    <div style="display:flex;gap:7px;">
+      <input class="fi" id="imp-code" placeholder="邀請碼或分享連結" style="flex:1;font-size:13px;">
+      <button class="btn btn-pr btn-sm" onclick="importTrip()">匯入</button>
+    </div>
+  </div>
+</div>
+
+</div><!-- end main-wrap -->
+
+<!-- BOTTOM NAV -->
+<nav id="bot-nav">
+  <button class="nb on" data-sc="home" onclick="go('home')"><i class="fas fa-plus-circle"></i><span>記帳</span></button>
+  <button class="nb" data-sc="list" onclick="go('list')"><i class="fas fa-receipt"></i><span>帳目</span></button>
+  <button class="nb" data-sc="settle" onclick="go('settle')"><i class="fas fa-scale-balanced"></i><span>結算</span></button>
+  <button class="nb" data-sc="analytics" onclick="go('analytics')"><i class="fas fa-chart-pie"></i><span>分析</span></button>
+  <button class="nb" data-sc="trips" onclick="go('trips')"><i class="fas fa-layer-group"></i><span>帳本</span></button>
+</nav>
+</div><!-- end app -->
+
+<div id="tw"></div>
+<input type="file" id="f-imp" accept=".json" style="display:none" onchange="handleFile(event)">
+
+<!-- TRIP EDITOR -->
+<div class="ov" id="ov-trip">
+  <div class="sh">
+    <div class="sh-hdl"></div>
+    <div class="sh-hdr">
+      <span class="sh-tit" id="trip-sh-tit">建立帳本</span>
+      <button class="sh-cls" onclick="closeOv('ov-trip')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="sh-body">
+      <input type="hidden" id="trip-eid">
+      <div class="fg"><label class="fl">行程名稱</label><input class="fi" id="trip-nm" placeholder="例：東京自由行 2025 ✈️"></div>
+      <div class="fg"><label class="fl">預設幣種</label>
+        <select class="fi" id="trip-cur">
+          <option value="TWD">TWD – 新台幣</option><option value="JPY">JPY – 日圓</option>
+          <option value="USD">USD – 美元</option><option value="EUR">EUR – 歐元</option>
+          <option value="KRW">KRW – 韓元</option><option value="HKD">HKD – 港幣</option>
+          <option value="GBP">GBP – 英鎊</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label class="fl">成員</label>
+        <div class="ml" id="m-list"></div>
+        <div class="amr">
+          <input class="fi" id="new-m" placeholder="成員名稱" style="flex:1;font-size:13px;" onkeydown="if(event.key==='Enter')addM()">
+          <button class="btn btn-pr btn-sm" onclick="addM()"><i class="fas fa-plus"></i> 新增</button>
+        </div>
+      </div>
+      <div class="fg">
+        <div class="fb" style="margin-bottom:7px;">
+          <label class="fl" style="margin:0;">匯率（兌 TWD）</label>
+          <button class="btn btn-out btn-sm" onclick="fetchRates()"><i class="fas fa-sync-alt"></i> 更新</button>
+        </div>
+        <div id="rate-list"></div>
+      </div>
+      <div class="fg"><label class="fl">邀請碼</label><div class="inv-box"><div class="inv-code" id="inv-code">------</div><div class="inv-hint">分享給朋友匯入此帳本</div></div></div>
+      <button class="btn btn-pr btn-block" onclick="saveTrip()"><i class="fas fa-check"></i> 儲存帳本</button>
+      <button class="btn btn-danger btn-block mt8" id="btn-del-trip" style="margin-top:8px;display:none;" onclick="deleteTrip()"><i class="fas fa-trash"></i> 刪除帳本</button>
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL -->
+<div class="ov" id="ov-det">
+  <div class="sh"><div class="sh-hdl"></div>
+    <div class="sh-hdr"><span class="sh-tit">記帳詳情</span><button class="sh-cls" onclick="closeOv('ov-det')"><i class="fas fa-times"></i></button></div>
+    <div class="sh-body" id="det-body"></div>
+  </div>
+</div>
+
+<!-- SHARE -->
+<div class="ov" id="ov-share">
+  <div class="sh"><div class="sh-hdl"></div>
+    <div class="sh-hdr"><span class="sh-tit">分享行程</span><button class="sh-cls" onclick="closeOv('ov-share')"><i class="fas fa-times"></i></button></div>
+    <div class="sh-body">
+      <div class="inv-box" style="margin-bottom:14px;"><div style="font-size:11px;color:var(--t2);margin-bottom:3px;">邀請碼</div><div class="inv-code" id="sh-code">------</div><div class="inv-hint">朋友在「帳本 → 匯入行程」輸入此碼</div></div>
+      <div class="fg"><label class="fl">分享連結</label><div style="display:flex;gap:7px;"><input class="fi" id="sh-url" readonly style="flex:1;font-size:11px;"><button class="btn btn-pr btn-sm" onclick="cpUrl()">複製</button></div></div>
+      <button class="btn btn-pr btn-block" onclick="natShare()"><i class="fas fa-share"></i> 分享</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════
+   CONSTANTS & DATA
+   ═══════════════════════════ */
+const STORE = 'sg_v4';
+const CATS = [
+  {id:'food', e:'🍜', l:'食物',   c:'#FF6B6B'},
+  {id:'trans',e:'🚗', l:'交通',   c:'#74B9FF'},
+  {id:'hotel',e:'🏨', l:'住宿',   c:'#A29BFE'},
+  {id:'fun',  e:'🎭', l:'娛樂',   c:'#FDCB6E'},
+  {id:'shop', e:'🛒', l:'購物',   c:'#55EFC4'},
+  {id:'drink',e:'☕', l:'飲品',   c:'#FAB1A0'},
+  {id:'other',e:'📦', l:'其他',   c:'#B2BEC3'},
+];
+const CURS = ['TWD','JPY','USD','EUR','KRW','HKD','GBP'];
+const SYMS = {TWD:'NT$',JPY:'¥',USD:'$',EUR:'€',KRW:'₩',HKD:'HK$',GBP:'£'};
+const DEF_RATES = {TWD:1,JPY:0.22,USD:32.5,EUR:35.5,KRW:0.024,HKD:4.16,GBP:41.2};
+const AVC = ['#00BCD4','#FF6B6B','#A29BFE','#55EFC4','#FDCB6E','#74B9FF'];
+
+let S = {trips:[], curTrip:null, settings:{dark:false}};
+
+// ── entry state ──
+let eAmt = '';           // current amount string
+let eCur = 'TWD';
+let eCat = 'food';
+let ePayer = null;
+let eSplits = [];        // members participating in split
+let splitMode = 'even';  // 'even' | 'custom'
+let customAmts = {};     // {memberName: number}  (for 'custom' mode)
+let customPct = {};      // {memberName: number}  (for pct mode)
+let cspTab = 'amt';      // 'amt' | 'pct'
+let editId = null;
+let modalMembers = [];
+
+/* ═══════════════════════════
+   PERSIST
+   ═══════════════════════════ */
+function save(){ try{ localStorage.setItem(STORE, JSON.stringify(S)); }catch(e){} }
+function load(){
+  try{ const r=localStorage.getItem(STORE); if(r){ const p=JSON.parse(r); S={...S,...p}; } }catch(e){}
+}
+
+/* ═══════════════════════════
+   DEMO DATA
+   ═══════════════════════════ */
+function demo(){
+  const id='demo_'+Date.now();
+  const t={
+    id, name:'東京自由行 🗼', currency:'JPY',
+    members:['小明','小華','小美'],
+    rates:{TWD:1,JPY:0.22,USD:32.5,EUR:35.5,KRW:0.024,HKD:4.16,GBP:41.2},
+    inviteCode:'TOKYO1', createdAt:Date.now(),
+    expenses:[
+      {id:'e1',amount:3200,currency:'JPY',category:'hotel',desc:'新宿酒店',payer:'小明',splits:['小明','小華','小美'],splitMode:'even',customAmts:{},date:Date.now()-4*86400000},
+      {id:'e2',amount:1500,currency:'JPY',category:'food',desc:'築地市場早餐',payer:'小華',splits:['小明','小華','小美'],splitMode:'even',customAmts:{},date:Date.now()-3*86400000},
+      {id:'e3',amount:850,currency:'JPY',category:'trans',desc:'地鐵一日券',payer:'小美',splits:['小明','小華','小美'],splitMode:'even',customAmts:{},date:Date.now()-3*86400000},
+      {id:'e4',amount:580,currency:'TWD',category:'shop',desc:'便利商店',payer:'小明',splits:['小明','小華'],splitMode:'even',customAmts:{},date:Date.now()-2*86400000},
+      // Custom split example: 2800 JPY, 小明 pays, 小明:1000 小華:1200 小美:600
+      {id:'e5',amount:2800,currency:'JPY',category:'fun',desc:'迪士尼門票（自訂分攤）',payer:'小華',splits:['小明','小華','小美'],splitMode:'custom',customAmts:{'小明':1000,'小華':1200,'小美':600},date:Date.now()-86400000},
+    ],
+    settlements:[]
+  };
+  S.trips.push(t); S.curTrip=t.id; save();
+}
+
+/* ═══════════════════════════
+   UTILS
+   ═══════════════════════════ */
+function gid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function gc(){ return Math.random().toString(36).slice(2,8).toUpperCase(); }
+function tr(){ return S.trips.find(t=>t.id===S.curTrip)||null; }
+function catOf(id){ return CATS.find(c=>c.id===id)||CATS[6]; }
+function sym(c){ return SYMS[c]||c; }
+function toTWD(a,c,rates){ return a*((rates&&rates[c])||DEF_RATES[c]||1); }
+function fmtC(a,c){
+  const s=sym(c); const v=parseFloat(a)||0;
+  if(c==='JPY'||c==='KRW') return s+Math.round(v).toLocaleString();
+  return s+(Number.isInteger(v)?v.toLocaleString():v.toFixed(2));
+}
+function fmtD(ts){
+  const d=new Date(ts),n=new Date(),diff=Math.floor((n-d)/86400000);
+  if(diff===0)return '今天';if(diff===1)return '昨天';if(diff<7)return diff+'天前';
+  return `${d.getMonth()+1}/${d.getDate()}`;
+}
+function aIdx(name,members){ const i=members.indexOf(name); return i>=0?i%6:0; }
+
+function toast(msg,type='',ms=2300){
+  const w=document.getElementById('tw');
+  const el=document.createElement('div'); el.className=`toast ${type}`;
+  const ic=type==='ok'?'check-circle':type==='err'?'exclamation-circle':'info-circle';
+  el.innerHTML=`<i class="fas fa-${ic}"></i>${msg}`;
+  w.appendChild(el);
+  setTimeout(()=>{el.style.opacity='0';el.style.transform='translateY(-10px)';setTimeout(()=>el.remove(),280);},ms);
+}
+
+/* ═══════════════════════════
+   NAVIGATION
+   ═══════════════════════════ */
+function go(name){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nb,.sb-b').forEach(b=>b.classList.remove('on'));
+  document.getElementById('scr-'+name).classList.add('active');
+  document.querySelectorAll(`[data-sc="${name}"]`).forEach(b=>b.classList.add('on'));
+  if(name==='list') renderList();
+  if(name==='settle') renderSettle();
+  if(name==='analytics') renderAnalytics();
+  if(name==='trips') renderTrips();
+  if(name==='home') refreshHome();
+}
+
+/* ═══════════════════════════
+   HOME / ENTRY FORM
+   ═══════════════════════════ */
+function refreshHome(){
+  const t=tr();
+  const evBar=document.getElementById('ev-bar');
+  const noEv=document.getElementById('no-ev');
+  const form=document.getElementById('entry-form');
+  const subRow=document.getElementById('sub-row');
+  if(!t){
+    evBar.classList.add('hidden'); noEv.classList.remove('hidden');
+    form.classList.add('hidden'); subRow.classList.add('hidden'); return;
+  }
+  evBar.classList.remove('hidden'); noEv.classList.add('hidden');
+  form.classList.remove('hidden'); subRow.classList.remove('hidden');
+
+  document.getElementById('ev-name-bar').textContent = t.name;
+  document.getElementById('ev-meta-bar').textContent = `${t.members.length} 人 · ${t.expenses.length} 筆 · ${t.currency}`;
+
+  if(!editId){
+    eCur = t.currency;
+    if(!ePayer || !t.members.includes(ePayer)) ePayer = t.members[0]||null;
+    eSplits = eSplits.filter(m=>t.members.includes(m));
+    if(eSplits.length===0) eSplits=[...t.members];
+  }
+
+  updAmt(); renderCurRow(); renderCatRow(); renderPayerRow(); renderSplitRow();
+  document.getElementById('btn-cpy').style.display = t.expenses.length>0?'flex':'none';
+}
+
+/* ── Amount ── */
+function updAmt(){
+  const d=document.getElementById('amt-disp');
+  d.textContent = eAmt||'0';
+  d.classList.toggle('ph',!eAmt||eAmt==='0');
+  const t=tr();
+  const tEl=document.getElementById('amt-twd');
+  if(t && eCur!=='TWD' && eAmt && parseFloat(eAmt)>0){
+    tEl.textContent=`≈ NT$${Math.round(toTWD(parseFloat(eAmt),eCur,t.rates)).toLocaleString()}`;
+  } else { tEl.textContent=''; }
+  renderCurRow();
+}
+function setCur(c){ eCur=c; updAmt(); }
+function renderCurRow(){
+  document.querySelectorAll('#cur-row .cur-pill').forEach(p=>p.classList.toggle('on',p.dataset.c===eCur));
+}
+
+/* ── Numpad ── */
+// Numpad: use touchstart for instant response, prevent double-tap zoom
+document.querySelectorAll('.np[data-n]').forEach(btn=>{
+  let lastTouch=0;
+  const handler=(e)=>{
+    e.preventDefault();
+    const now=Date.now();
+    if(now-lastTouch<350){return;} // ignore rapid 2nd touch (double-tap)
+    lastTouch=now;
+    const n=btn.dataset.n;
+    if(n==='.'){
+      if(!eAmt.includes('.')) eAmt+=(eAmt?'.':'0.');
+    } else {
+      if(eAmt.length>=10) return;
+      eAmt=(eAmt===''||eAmt==='0')?n:eAmt+n;
+    }
+    updAmt();
+  };
+  btn.addEventListener('touchend', handler, {passive:false});
+  btn.addEventListener('click', handler);
+});
+// Del button: same double-tap prevention
+(()=>{
+  const delBtn=document.getElementById('np-del');
+  let lastT=0;
+  const delHandler=(e)=>{
+    e.preventDefault();
+    const now=Date.now(); if(now-lastT<350){return;} lastT=now;
+    eAmt=eAmt.slice(0,-1); updAmt();
+  };
+  delBtn.addEventListener('touchend',delHandler,{passive:false});
+  delBtn.addEventListener('click',delHandler);
+})();
+
+/* ── Category ── */
+function renderCatRow(){
+  document.getElementById('cat-row').innerHTML=CATS.map(c=>`
+    <div class="cc${c.id===eCat?' on':''}" onclick="selCat('${c.id}')">
+      ${c.e} ${c.l}
+    </div>`).join('');
+}
+function selCat(id){ eCat=id; renderCatRow(); }
+
+/* ── Payer ── */
+function renderPayerRow(){
+  const t=tr(); if(!t) return;
+  document.getElementById('payer-row').innerHTML=t.members.map((m,i)=>`
+    <div class="pc${m===ePayer?' payer':''}" onclick="selPayer('${m}')">
+      <div class="pav av${i%6}">${m[0]}</div>
+      <div class="pnm">${m}</div>
+    </div>`).join('');
+}
+function selPayer(n){ ePayer=n; renderPayerRow(); }
+
+/* ── Split ── */
+function setSplitMode(mode){
+  splitMode=mode;
+  document.getElementById('sm-even').classList.toggle('on',mode==='even');
+  document.getElementById('sm-custom').classList.toggle('on',mode==='custom');
+  if(mode==='custom'){
+    // init custom amounts evenly
+    initCustomAmts();
+    openCustomPanel();
+  } else {
+    closeCustomPanel();
+  }
+  renderSplitRow();
+}
+
+function renderSplitRow(){
+  const t=tr(); if(!t) return;
+  const allOn=t.members.every(m=>eSplits.includes(m));
+  document.getElementById('all-spl-btn').textContent=allOn?'全取消':'全選';
+  document.getElementById('split-row').innerHTML=t.members.map((m,i)=>{
+    const on=eSplits.includes(m);
+    let badge='';
+    if(splitMode==='custom' && on){
+      const amt=customAmts[m]||0;
+      badge=`<div class="camt">${sym(eCur)}${amt}</div>`;
+    }
+    return `<div class="pc${on?' spl':' off'}" onclick="togSplit('${m}')">
+      <div class="pav av${i%6}">${m[0]}</div>
+      <div class="pnm">${m}</div>
+      ${badge}
+    </div>`;
+  }).join('');
+}
+
+function togSplit(name){
+  if(eSplits.includes(name)){
+    if(eSplits.length===1) return;
+    eSplits=eSplits.filter(m=>m!==name);
+  } else { eSplits.push(name); }
+  if(splitMode==='custom') initCustomAmts();
+  renderSplitRow();
+  if(splitMode==='custom') renderCspMembers();
+}
+function togAllSplit(){
+  const t=tr(); if(!t) return;
+  eSplits=t.members.every(m=>eSplits.includes(m))?[t.members[0]]:[...t.members];
+  if(splitMode==='custom') initCustomAmts();
+  renderSplitRow();
+  if(splitMode==='custom') renderCspMembers();
+}
+
+/* ═══════════════════════════
+   CUSTOM SPLIT PANEL
+   ═══════════════════════════ */
+function initCustomAmts(){
+  const amt=parseFloat(eAmt)||0;
+  const n=eSplits.length||1;
+  const each=Math.round(amt/n*100)/100;
+  eSplits.forEach(m=>{ if(!(m in customAmts)) customAmts[m]=each; });
+  // remove members not in splits
+  Object.keys(customAmts).forEach(m=>{ if(!eSplits.includes(m)) delete customAmts[m]; });
+  // reset pct
+  eSplits.forEach(m=>{ if(!(m in customPct)) customPct[m]=Math.round(100/n); });
+  Object.keys(customPct).forEach(m=>{ if(!eSplits.includes(m)) delete customPct[m]; });
+}
+
+function openCustomPanel(){
+  initCustomAmts();
+  renderCspMembers();
+  document.getElementById('custom-split-panel').classList.add('open');
+}
+function closeCustomPanel(){ document.getElementById('custom-split-panel').classList.remove('open'); }
+
+function setCspTab(tab){
+  cspTab=tab;
+  document.getElementById('csp-tab-amt').classList.toggle('on',tab==='amt');
+  document.getElementById('csp-tab-pct').classList.toggle('on',tab==='pct');
+  renderCspMembers();
+}
+
+function renderCspMembers(){
+  const t=tr(); if(!t) return;
+  const totalAmt=parseFloat(eAmt)||0;
+  const html=eSplits.map((m,i)=>{
+    const idx=aIdx(m,t.members);
+    const isIn=eSplits.includes(m);
+    let inputHtml='';
+    if(cspTab==='amt'){
+      const val=customAmts[m]!==undefined ? customAmts[m] : 0;
+      inputHtml=`<input class="csp-inp" type="number" id="csp-${m}" value="${val}" min="0" step="0.01"
+        oninput="onCspAmt('${m}',this.value)">`;
+    } else {
+      const pval=customPct[m]!==undefined ? customPct[m] : 0;
+      inputHtml=`<input class="csp-inp" type="number" id="csp-${m}" value="${pval}" min="0" max="100" step="1"
+        oninput="onCspPct('${m}',this.value)">
+        <span style="font-size:11px;color:var(--t2);margin-left:2px;">%</span>`;
+    }
+    // hint: derived amount
+    let hint='';
+    if(cspTab==='pct'){
+      const derived=Math.round((customPct[m]||0)/100*totalAmt*100)/100;
+      hint=`${sym(eCur)}${derived}`;
+    }
+    return `<div class="csp-member-row">
+      <div class="csp-av av${idx}" style="background:${AVC[idx]}">${m[0]}</div>
+      <div class="csp-name">${m}</div>
+      <span class="csp-hint">${hint}</span>
+      ${inputHtml}
+    </div>`;
+  }).join('');
+  document.getElementById('csp-members').innerHTML=html;
+  updateCspSum();
+}
+
+function onCspAmt(name, val){
+  customAmts[name]=parseFloat(val)||0;
+  // derive pct
+  const total=parseFloat(eAmt)||1;
+  customPct[name]=Math.round(customAmts[name]/total*100);
+  updateCspSum();
+  renderSplitRow();
+}
+function onCspPct(name, val){
+  customPct[name]=parseFloat(val)||0;
+  const total=parseFloat(eAmt)||0;
+  customAmts[name]=Math.round(total*(customPct[name]/100)*100)/100;
+  updateCspSum();
+  renderSplitRow();
+}
+
+function updateCspSum(){
+  const total=parseFloat(eAmt)||0;
+  let sum=0;
+  if(cspTab==='amt'){
+    sum=eSplits.reduce((s,m)=>s+(customAmts[m]||0),0);
+  } else {
+    sum=eSplits.reduce((s,m)=>s+(customPct[m]||0),0);
+  }
+  const sv=document.getElementById('csp-sum-val');
+  const sl=document.getElementById('csp-sum-label');
+  if(cspTab==='amt'){
+    const ok=Math.abs(sum-total)<0.02;
+    sv.textContent=`${sym(eCur)}${sum.toFixed(2)} / ${sym(eCur)}${total.toFixed(2)}`;
+    sv.className='csp-sum-val '+(ok?'ok':'err');
+    sl.textContent=ok?'✓ 分攤正確':'分攤總計（需等於總金額）';
+  } else {
+    const ok=Math.abs(sum-100)<1;
+    sv.textContent=`${sum}% / 100%`;
+    sv.className='csp-sum-val '+(ok?'ok':'err');
+    sl.textContent=ok?'✓ 百分比正確':'百分比總計（需等於 100%）';
+  }
+}
+
+function applyCustomSplit(){
+  // Convert pct to amt if in pct mode
+  if(cspTab==='pct'){
+    const total=parseFloat(eAmt)||0;
+    eSplits.forEach(m=>{ customAmts[m]=Math.round(total*(customPct[m]||0)/100*100)/100; });
+  }
+  // Validate
+  const total=parseFloat(eAmt)||0;
+  const sum=eSplits.reduce((s,m)=>s+(customAmts[m]||0),0);
+  if(Math.abs(sum-total)>0.05){
+    toast(`分攤總計 ${sym(eCur)}${sum.toFixed(2)} ≠ 總金額 ${sym(eCur)}${total.toFixed(2)}，請修正`,'err',3000);
+    return;
+  }
+  closeCustomPanel();
+  renderSplitRow();
+  toast('自訂分攤已套用 ✓','ok');
+}
+
+/* ── Submit ── */
+function doSubmit(){
+  const t=tr();
+  if(!t){ toast('請先建立帳本','err'); go('trips'); return; }
+  const amt=parseFloat(eAmt);
+  if(!amt||amt<=0){ toast('請輸入金額','err'); return; }
+  if(!ePayer){ toast('請選擇付款人','err'); return; }
+  if(eSplits.length===0){ toast('請選擇分攤成員','err'); return; }
+  const desc=document.getElementById('di').value.trim();
+
+  // Validate custom split if used
+  let finalCustomAmts={};
+  if(splitMode==='custom'){
+    const sum=eSplits.reduce((s,m)=>s+(customAmts[m]||0),0);
+    if(Math.abs(sum-amt)>0.05){
+      toast('自訂分攤金額未確認，請先套用','err',3000); return;
+    }
+    eSplits.forEach(m=>{ finalCustomAmts[m]=customAmts[m]||0; });
+  }
+
+  const exp={
+    id:editId||gid(), amount:amt, currency:eCur, category:eCat, desc,
+    payer:ePayer, splits:[...eSplits],
+    splitMode, customAmts:finalCustomAmts,
+    date: editId ? (t.expenses.find(e=>e.id===editId)?.date||Date.now()) : Date.now()
+  };
+
+  if(editId){
+    const idx=t.expenses.findIndex(e=>e.id===editId);
+    if(idx>=0) t.expenses[idx]=exp;
+    toast('記帳已更新！','ok'); editId=null;
+  } else {
+    t.expenses.push(exp);
+    toast('✅ 記帳成功！','ok');
+  }
+  save();
+  eAmt=''; document.getElementById('di').value='';
+  splitMode='even'; closeCustomPanel();
+  document.getElementById('sm-even').classList.add('on');
+  document.getElementById('sm-custom').classList.remove('on');
+  updAmt(); renderSplitRow();
+  document.getElementById('ev-meta-bar').textContent=`${t.members.length} 人 · ${t.expenses.length} 筆 · ${t.currency}`;
+  document.getElementById('btn-cpy').style.display='flex';
+}
+
+function copyLast(){
+  const t=tr(); if(!t||!t.expenses.length) return;
+  const last=t.expenses[t.expenses.length-1];
+  eAmt=last.amount.toString(); eCur=last.currency;
+  eCat=last.category; ePayer=last.payer; eSplits=[...last.splits];
+  splitMode=last.splitMode||'even'; customAmts={...last.customAmts};
+  document.getElementById('di').value=last.desc||'';
+  document.getElementById('sm-even').classList.toggle('on',splitMode==='even');
+  document.getElementById('sm-custom').classList.toggle('on',splitMode==='custom');
+  if(splitMode==='custom') openCustomPanel();
+  updAmt(); renderCurRow(); renderCatRow(); renderPayerRow(); renderSplitRow();
+  toast('已複製上筆','');
+}
+
+/* ═══════════════════════════
+   LIST
+   ═══════════════════════════ */
+function renderList(){
+  const t=tr();
+  const el=document.getElementById('exp-list');
+  const sc=document.getElementById('sum-chips');
+  if(!t||!t.expenses.length){
+    el.innerHTML=`<div style="text-align:center;padding:40px 20px;"><span style="font-size:48px;display:block;margin-bottom:10px;">🧾</span><h3 style="font-size:16px;font-weight:700;margin-bottom:5px;">尚無記帳</h3><p style="font-size:12px;color:var(--t2);">到「記帳」Tab 開始記錄</p></div>`;
+    sc.innerHTML=''; return;
+  }
+  const totalTWD=t.expenses.reduce((s,e)=>s+toTWD(e.amount,e.currency,t.rates),0);
+  const base=t.rates[t.currency]||1;
+  sc.innerHTML=`
+    <div class="sum-chip"><div class="sv">${fmtC(totalTWD/base,t.currency)}</div><div class="sl">總花費 · ${t.expenses.length} 筆</div></div>
+    <div class="sum-chip"><div class="sv">${fmtC(totalTWD/base/t.members.length,t.currency)}</div><div class="sl">每人均攤</div></div>`;
+  el.innerHTML=[...t.expenses].sort((a,b)=>b.date-a.date).map(exp=>{
+    const c=catOf(exp.category);
+    const isCustom=exp.splitMode==='custom';
+    return `<div class="exp-item" onclick="showDet('${exp.id}')">
+      <div class="eico" style="background:${c.c}22;">${c.e}</div>
+      <div class="einf">
+        <div class="etit">${exp.desc||c.l}</div>
+        <div class="emeta">
+          <span class="ptag">${exp.payer}</span>
+          <span>${fmtD(exp.date)}</span>
+          <span>÷${exp.splits.length}${isCustom?' ✏️':''}</span>
+        </div>
+      </div>
+      <div class="eamt">
+        <div class="a">${fmtC(exp.amount,exp.currency)}</div>
+        <div class="c">${exp.currency}</div>
+        ${exp.currency!=='TWD'?`<div class="t">≈NT$${Math.round(toTWD(exp.amount,exp.currency,t.rates)).toLocaleString()}</div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function showDet(expId){
+  const t=tr(); if(!t) return;
+  const exp=t.expenses.find(e=>e.id===expId); if(!exp) return;
+  const c=catOf(exp.category);
+  const isCustom=exp.splitMode==='custom';
+  const base=t.rates[t.currency]||1;
+
+  // Build split display
+  let splitHtml='';
+  if(isCustom){
+    splitHtml=exp.splits.map(m=>{
+      const idx=aIdx(m,t.members);
+      const amt=exp.customAmts[m]||0;
+      const twdAmt=toTWD(amt,exp.currency,t.rates);
+      return `<div class="stag"><div class="mav2" style="background:${AVC[idx]}">${m[0]}</div>${m}: ${fmtC(amt,exp.currency)}</div>`;
+    }).join(' ');
+  } else {
+    const perP=exp.amount/exp.splits.length;
+    splitHtml=exp.splits.map(m=>{
+      const idx=aIdx(m,t.members);
+      return `<div class="stag"><div class="mav2" style="background:${AVC[idx]}">${m[0]}</div>${m} (${fmtC(perP,exp.currency)})</div>`;
+    }).join(' ');
+  }
+
+  document.getElementById('det-body').innerHTML=`
+    <div class="det-hero">
+      <span class="det-e">${c.e}</span>
+      <div class="det-a">${fmtC(exp.amount,exp.currency)}</div>
+      ${exp.currency!=='TWD'?`<div class="det-t">≈ NT$${Math.round(toTWD(exp.amount,exp.currency,t.rates)).toLocaleString()}</div>`:''}
+    </div>
+    <div class="dr"><span class="dk">類別</span><span class="dv">${c.e} ${c.l}</span></div>
+    <div class="dr"><span class="dk">品項</span><span class="dv">${exp.desc||'（無備註）'}</span></div>
+    <div class="dr"><span class="dk">付款人</span><span class="dv" style="color:var(--pr)">${exp.payer}</span></div>
+    <div class="dr"><span class="dk">分攤方式</span><span class="dv">${isCustom?'✏️ 自訂':'均攤'}</span></div>
+    <div class="dr"><span class="dk">日期</span><span class="dv">${new Date(exp.date).toLocaleDateString('zh-TW')}</span></div>
+    <div class="divider"></div>
+    <div class="fl">分攤明細</div>
+    <div class="split-tags">${splitHtml}</div>
+    <div class="divider"></div>
+    <div style="display:flex;gap:7px;">
+      <button class="btn btn-out" style="flex:1;" onclick="editExp('${exp.id}')"><i class="fas fa-edit"></i> 編輯</button>
+      <button class="btn btn-danger" style="flex:1;" onclick="delExp('${exp.id}')"><i class="fas fa-trash"></i> 刪除</button>
+    </div>`;
+  openOv('ov-det');
+}
+
+function editExp(expId){
+  const t=tr(); if(!t) return;
+  const exp=t.expenses.find(e=>e.id===expId); if(!exp) return;
+  editId=expId; eAmt=exp.amount.toString(); eCur=exp.currency;
+  eCat=exp.category; ePayer=exp.payer; eSplits=[...exp.splits];
+  splitMode=exp.splitMode||'even'; customAmts={...exp.customAmts};
+  document.getElementById('di').value=exp.desc||'';
+  document.getElementById('sm-even').classList.toggle('on',splitMode==='even');
+  document.getElementById('sm-custom').classList.toggle('on',splitMode==='custom');
+  closeOv('ov-det'); go('home');
+  updAmt(); renderCurRow(); renderCatRow(); renderPayerRow(); renderSplitRow();
+  if(splitMode==='custom') openCustomPanel();
+}
+
+function delExp(expId){
+  const t=tr(); if(!t) return;
+  if(!confirm('確定刪除這筆記帳？')) return;
+  t.expenses=t.expenses.filter(e=>e.id!==expId);
+  save(); closeOv('ov-det'); renderList(); toast('已刪除','ok');
+}
+
+/* ═══════════════════════════
+   SETTLEMENT
+   ═══════════════════════════ */
+function calcBals(t){
+  const b={};
+  t.members.forEach(m=>{b[m]={paid:0,share:0,net:0};});
+  t.expenses.forEach(exp=>{
+    const twdTotal=toTWD(exp.amount,exp.currency,t.rates);
+    if(b[exp.payer]) b[exp.payer].paid+=twdTotal;
+    if(exp.splitMode==='custom' && exp.customAmts && Object.keys(exp.customAmts).length){
+      exp.splits.forEach(m=>{
+        if(b[m]){
+          const mAmt=exp.customAmts[m]||0;
+          b[m].share+=toTWD(mAmt,exp.currency,t.rates);
+        }
+      });
+    } else {
+      const pp=twdTotal/exp.splits.length;
+      exp.splits.forEach(m=>{ if(b[m]) b[m].share+=pp; });
+    }
+  });
+  t.members.forEach(m=>{ b[m].net=b[m].paid-b[m].share; });
+  return b;
+}
+
+function calcTxs(t){
+  const bals=calcBals(t);
+  const debtors=[],creditors=[];
+  t.members.forEach(m=>{
+    const n=Math.round(bals[m].net*100)/100;
+    if(n<-0.01) debtors.push({name:m,amount:-n});
+    else if(n>0.01) creditors.push({name:m,amount:n});
+  });
+  debtors.sort((a,b)=>b.amount-a.amount);
+  creditors.sort((a,b)=>b.amount-a.amount);
+  const txs=[]; let di=0,ci=0;
+  while(di<debtors.length&&ci<creditors.length){
+    const d=debtors[di],c=creditors[ci];
+    const amt=Math.min(d.amount,c.amount);
+    const ex=(t.settlements||[]).find(s=>s.from===d.name&&s.to===c.name&&Math.abs(s.amt-amt)<1);
+    txs.push({from:d.name,to:c.name,amt:Math.round(amt*100)/100,done:ex?ex.done:false});
+    d.amount-=amt; c.amount-=amt;
+    if(d.amount<0.01) di++;
+    if(c.amount<0.01) ci++;
+  }
+  return txs;
+}
+
+function renderSettle(){
+  const t=tr();
+  if(!t){
+    document.getElementById('bal-list').innerHTML=`<div style="text-align:center;padding:28px;font-size:13px;color:var(--t2);">請先選擇帳本</div>`;
+    document.getElementById('set-list').innerHTML=''; return;
+  }
+  document.getElementById('set-badge').textContent=t.currency;
+  const bals=calcBals(t); const base=t.rates[t.currency]||1;
+  document.getElementById('bal-list').innerHTML=t.members.map((m,i)=>{
+    const b=bals[m]; const nb=b.net/base; const pos=nb>=0;
+    return `<div class="bal-row">
+      <div class="bav av${i%6}">${m[0]}</div>
+      <div class="binf"><div class="bnm">${m}</div><div class="bsub">付出 ${fmtC(b.paid/base,t.currency)} · 應付 ${fmtC(b.share/base,t.currency)}</div></div>
+      <div><div class="bnet ${pos?'bpos':'bneg'}">${pos?'+':''}${fmtC(nb,t.currency)}</div><div style="font-size:9.5px;color:var(--th);text-align:right;">${pos?'可收回':'需付出'}</div></div>
+    </div>`;
+  }).join('');
+  const txs=calcTxs(t);
+  document.getElementById('set-cnt').textContent=`${txs.filter(s=>!s.done).length} 筆待結清`;
+  if(!txs.length){
+    document.getElementById('set-list').innerHTML=`<div class="se-empty"><span class="e">🎉</span><h3>全部結清！</h3><p>所有費用已平衡</p></div>`;
+    t.settlements=[]; save(); return;
+  }
+  document.getElementById('set-list').innerHTML=txs.map((tx,idx)=>{
+    const fi=aIdx(tx.from,t.members),ti=aIdx(tx.to,t.members);
+    const base2=tx.amt/base;
+    return `<div class="si${tx.done?' done':''}">
+      <div class="sav av${fi}">${tx.from[0]}</div>
+      <div class="smid">
+        <div class="sarr"><b>${tx.from}</b><i class="fas fa-arrow-right" style="font-size:10px;"></i><b>${tx.to}</b></div>
+        <div class="samt">${fmtC(base2,t.currency)}</div>
+        ${base2!==tx.amt?`<div class="stwd">≈ NT$${Math.round(tx.amt).toLocaleString()}</div>`:''}
+      </div>
+      <div class="sav av${ti}">${tx.to[0]}</div>
+      ${tx.done?`<div class="done-pill">✓ 已付</div>`:`<button class="mk-btn" onclick="markDone(${idx})">標記已付</button>`}
+    </div>`;
+  }).join('');
+  t.settlements=txs; save();
+}
+
+function markDone(idx){
+  const t=tr(); if(!t) return;
+  const txs=calcTxs(t); if(txs[idx]){ txs[idx].done=true; t.settlements=txs; save(); renderSettle(); toast('已標記已付','ok'); }
+}
+
+/* ═══════════════════════════
+   ANALYTICS
+   ═══════════════════════════ */
+let chC=null,chT=null;
+function sAnaTab(tab){
+  document.querySelectorAll('[data-at]').forEach(b=>b.classList.toggle('on',b.dataset.at===tab));
+  ['cat','time','person'].forEach(id=>document.getElementById('at-'+id).classList.toggle('hidden',id!==tab));
+  if(tab==='cat') drawCat();
+  if(tab==='time') drawTime();
+  if(tab==='person') drawPerson();
+}
+function renderAnalytics(){ drawCat(); }
+function drawCat(){
+  const t=tr(); if(!t) return;
+  const tot={};CATS.forEach(c=>{tot[c.id]=0;});
+  t.expenses.forEach(e=>{tot[e.category]=(tot[e.category]||0)+toTWD(e.amount,e.currency,t.rates);});
+  const data=CATS.map(c=>Math.round(tot[c.id]));
+  const total=data.reduce((s,v)=>s+v,0);
+  if(chC) chC.destroy();
+  chC=new Chart(document.getElementById('ch-cat').getContext('2d'),{
+    type:'doughnut',
+    data:{labels:CATS.map(c=>c.e+' '+c.l),datasets:[{data,backgroundColor:CATS.map(c=>c.c+'CC'),borderColor:CATS.map(c=>c.c),borderWidth:2,hoverOffset:5}]},
+    options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`NT$${c.raw.toLocaleString()}`}}}}
+  });
+  document.getElementById('cat-lgd').innerHTML=CATS.map((c,i)=>{
+    if(!data[i]) return '';
+    const pct=total>0?Math.round(data[i]/total*100):0;
+    return `<div class="lgd-r"><div class="lgd-l"><div class="lgd-dot" style="background:${c.c}"></div><span class="lgd-lbl">${c.e} ${c.l}</span></div><div style="text-align:right;"><div class="lgd-v">NT$${data[i].toLocaleString()}</div><div style="font-size:9.5px;color:var(--th);">${pct}%</div></div></div>`;
+  }).filter(Boolean).join('');
+}
+function drawTime(){
+  const t=tr(); if(!t) return;
+  const map={};
+  t.expenses.forEach(e=>{const d=new Date(e.date);const k=`${d.getMonth()+1}/${d.getDate()}`;map[k]=(map[k]||0)+toTWD(e.amount,e.currency,t.rates);});
+  const labels=Object.keys(map).sort(); const data=labels.map(l=>Math.round(map[l]));
+  if(chT) chT.destroy();
+  chT=new Chart(document.getElementById('ch-time').getContext('2d'),{
+    type:'bar',
+    data:{labels,datasets:[{label:'每日',data,backgroundColor:'rgba(0,188,212,.7)',borderColor:'#00BCD4',borderWidth:2,borderRadius:5,borderSkipped:false}]},
+    options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`NT$${c.raw.toLocaleString()}`}}},scales:{y:{beginAtZero:true,grid:{color:'rgba(0,0,0,.04)'}},x:{grid:{display:false}}}}
+  });
+}
+function drawPerson(){
+  const t=tr(); if(!t) return;
+  const paid={}; t.members.forEach(m=>{paid[m]=0;});
+  t.expenses.forEach(e=>{paid[e.payer]=(paid[e.payer]||0)+toTWD(e.amount,e.currency,t.rates);});
+  const sorted=[...t.members].sort((a,b)=>(paid[b]||0)-(paid[a]||0));
+  const max=Math.max(...sorted.map(m=>paid[m]||0),1);
+  const base=t.rates[t.currency]||1;
+  document.getElementById('per-rank').innerHTML=sorted.map(m=>{
+    const p=paid[m]||0;const pct=Math.round(p/max*100);
+    return `<div class="pb-wrap"><div class="pb-hdr"><span class="pb-nm">${m}</span><span class="pb-a">${fmtC(p/base,t.currency)}</span></div><div class="pb-tr"><div class="pb-f" style="width:${pct}%"></div></div></div>`;
+  }).join('');
+}
+
+/* ═══════════════════════════
+   TRIPS MANAGEMENT
+   ═══════════════════════════ */
+function renderTrips(){
+  const c=document.getElementById('trips-list');
+  if(!S.trips.length){c.innerHTML='';return;}
+  c.innerHTML=S.trips.map(t=>{
+    const twdTot=t.expenses.reduce((s,e)=>s+toTWD(e.amount,e.currency,t.rates),0);
+    const base=t.rates[t.currency]||1;
+    const isAct=t.id===S.curTrip;
+    return `<div class="tc${isAct?' act':''}" onclick="setAct('${t.id}')">
+      <div class="tci">✈️</div>
+      <div class="tcinf"><div class="tcnm">${t.name}</div><div class="tcm">${t.members.join(' · ')} · ${t.expenses.length} 筆</div></div>
+      <div class="tcr">
+        <div class="tctot">${fmtC(twdTot/base,t.currency)}</div>
+        <div style="font-size:9.5px;color:var(--t2);margin-top:2px;">${isAct?'📌 目前':''}</div>
+        <button class="btn btn-out btn-sm" style="margin-top:4px;" onclick="event.stopPropagation();openEdit('${t.id}')">設定</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function setAct(id){ S.curTrip=id; save(); renderTrips(); toast('已切換帳本 ✓','ok'); }
+
+function openNewTrip(){
+  modalMembers=['我'];
+  document.getElementById('trip-eid').value='';
+  document.getElementById('trip-sh-tit').textContent='建立帳本';
+  document.getElementById('trip-nm').value='';
+  document.getElementById('trip-cur').value='TWD';
+  document.getElementById('inv-code').textContent=gc();
+  document.getElementById('btn-del-trip').style.display='none';
+  renderMList(); renderRateList({...DEF_RATES});
+  openOv('ov-trip');
+}
+function openEdit(id){
+  const t=S.trips.find(t=>t.id===id); if(!t) return;
+  modalMembers=[...t.members];
+  document.getElementById('trip-eid').value=id;
+  document.getElementById('trip-sh-tit').textContent='編輯帳本';
+  document.getElementById('trip-nm').value=t.name;
+  document.getElementById('trip-cur').value=t.currency;
+  document.getElementById('inv-code').textContent=t.inviteCode;
+  document.getElementById('btn-del-trip').style.display='flex';
+  renderMList(); renderRateList(t.rates);
+  openOv('ov-trip');
+}
+function renderMList(){
+  document.getElementById('m-list').innerHTML=modalMembers.map((m,i)=>`
+    <div class="mi"><div class="mav av${i%6}">${m[0]}</div><div class="mnm">${m}</div>
+    <button class="mdel" onclick="delM(${i})"><i class="fas fa-times"></i></button></div>`).join('');
+}
+function delM(i){ if(modalMembers.length<=1){toast('至少保留一位','err');return;} modalMembers.splice(i,1);renderMList(); }
+function addM(){
+  const inp=document.getElementById('new-m');const n=inp.value.trim();
+  if(!n){toast('請輸入名稱','err');return;}
+  if(modalMembers.length>=6){toast('最多6人','err');return;}
+  if(modalMembers.includes(n)){toast('已存在','err');return;}
+  modalMembers.push(n);inp.value='';renderMList();
+}
+function renderRateList(rates){
+  document.getElementById('rate-list').innerHTML=CURS.filter(c=>c!=='TWD').map(c=>`
+    <div class="rr"><span class="rl2">1 ${c} =</span>
+    <div style="display:flex;align-items:center;gap:5px;">
+      <input class="rinp" id="rm-${c}" type="number" value="${(rates[c]||DEF_RATES[c]).toFixed(4)}" step="0.0001" min="0">
+      <span style="font-size:11px;color:var(--t2);">TWD</span>
+    </div></div>`).join('');
+}
+document.getElementById('trip-cur').addEventListener('change',function(){
+  renderRateList(Object.fromEntries(CURS.filter(c=>c!=='TWD').map(c=>[c,parseFloat(document.getElementById('rm-'+c)?.value)||DEF_RATES[c]])));
+});
+async function fetchRates(){
+  toast('嘗試更新匯率...','');
+  try{
+    const r=await fetch('https://api.exchangerate-api.com/v4/latest/TWD',{signal:AbortSignal.timeout(5000)});
+    if(r.ok){ const d=await r.json(); CURS.filter(c=>c!=='TWD').forEach(c=>{ const el=document.getElementById('rm-'+c); if(el) el.value=(1/(d.rates[c]||1)).toFixed(4); }); toast('匯率已更新！','ok'); return; }
+  }catch(e){}
+  toast('自動更新失敗，請手動設定','err');
+}
+function saveTrip(){
+  const id=document.getElementById('trip-eid').value;
+  const name=document.getElementById('trip-nm').value.trim();
+  const currency=document.getElementById('trip-cur').value;
+  const inviteCode=document.getElementById('inv-code').textContent;
+  if(!name){toast('請輸入帳本名稱','err');return;}
+  if(!modalMembers.length){toast('請新增成員','err');return;}
+  const rates={TWD:1};
+  CURS.filter(c=>c!=='TWD').forEach(c=>{rates[c]=parseFloat(document.getElementById('rm-'+c)?.value)||DEF_RATES[c];});
+  if(id){
+    const t=S.trips.find(t=>t.id===id);
+    if(t){t.name=name;t.currency=currency;t.members=modalMembers;t.rates=rates; toast('帳本已更新','ok');}
+  } else {
+    const newT={id:gid(),name,currency,members:modalMembers,rates,inviteCode:inviteCode||gc(),createdAt:Date.now(),expenses:[],settlements:[]};
+    S.trips.push(newT);S.curTrip=newT.id; toast('帳本已建立 🎉','ok');
+  }
+  save(); closeOv('ov-trip'); renderTrips(); refreshHome();
+}
+function deleteTrip(){
+  const id=document.getElementById('trip-eid').value;
+  const t=S.trips.find(t=>t.id===id); if(!t) return;
+  if(!confirm(`確定刪除「${t.name}」？所有記帳將一併刪除。`)) return;
+  S.trips=S.trips.filter(t=>t.id!==id);
+  if(S.curTrip===id) S.curTrip=S.trips[0]?.id||null;
+  save(); closeOv('ov-trip'); renderTrips(); refreshHome(); toast('帳本已刪除','');
+}
+
+/* ═══════════════════════════
+   SHARE / IMPORT
+   ═══════════════════════════ */
+// Share: only encode THIS trip's data — NOT the full S state.
+// The recipient only imports one trip object and cannot access other trips.
+document.getElementById('btn-share').addEventListener('click',()=>{
+  const t=tr(); if(!t){toast('請先選擇帳本','err');return;}
+  document.getElementById('sh-code').textContent=t.inviteCode;
+  // Deep-clone single trip only (strip settlements for cleanliness, keep expenses)
+  const shareData=JSON.parse(JSON.stringify(t));
+  const enc=btoa(encodeURIComponent(JSON.stringify(shareData)));
+  document.getElementById('sh-url').value=`${location.href.split('#')[0]}#import=${enc}`;
+  openOv('ov-share');
+});
+function cpUrl(){const i=document.getElementById('sh-url');navigator.clipboard.writeText(i.value).then(()=>toast('已複製！','ok')).catch(()=>{i.select();document.execCommand('copy');toast('已複製','ok');});}
+async function natShare(){const t=tr();if(!t)return;const url=document.getElementById('sh-url').value;if(navigator.share){try{await navigator.share({title:`SplitGo - ${t.name}`,text:`邀請碼: ${t.inviteCode}`,url});}catch(e){}}else{cpUrl();}}
+function importTrip(){
+  const v=document.getElementById('imp-code').value.trim();if(!v)return;
+  // Parse from URL share link
+  if(v.includes('#import=')){
+    try{
+      // Only ONE trip object is encoded — recipient cannot see other trips
+      const t=JSON.parse(decodeURIComponent(atob(v.split('#import=')[1])));
+      if(!t.name||!t.members) throw new Error('invalid');
+      const ex=S.trips.find(e=>e.inviteCode===t.inviteCode);
+      if(ex){
+        S.curTrip=ex.id; save();
+        toast('帳本已存在，已切換至：'+ex.name,'');
+      } else {
+        t.id=gid(); t.settlements=[];
+        S.trips.push(t); S.curTrip=t.id; save();
+        toast(`「${t.name}」已匯入！`,'ok');
+      }
+      renderTrips(); refreshHome(); document.getElementById('imp-code').value=''; return;
+    }catch(e){ toast('連結格式有誤','err'); return; }
+  }
+  // Parse from invite code only
+  const found=S.trips.find(t=>t.inviteCode===v.toUpperCase());
+  if(found){S.curTrip=found.id;save();toast('已切換至：'+found.name,'ok');renderTrips();refreshHome();}
+  else toast('找不到此邀請碼','err');
+}
+function exportB(){const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`splitgo_${Date.now()}.json`;a.click();URL.revokeObjectURL(url);toast('備份已下載','ok');}
+function handleFile(ev){const file=ev.target.files[0];if(!file)return;const r=new FileReader();r.onload=e=>{try{const d=JSON.parse(e.target.result);if(d.trips){S.trips=d.trips;S.curTrip=d.curTrip||(d.trips[0]?.id||null);save();renderTrips();refreshHome();toast('備份已匯入','ok');}else toast('格式錯誤','err');}catch(e){toast('解析失敗','err');}};r.readAsText(file);}
+document.getElementById('btn-exp').addEventListener('click',exportB);
+document.getElementById('btn-imp').addEventListener('click',()=>document.getElementById('f-imp').click());
+
+/* ═══════════════════════════
+   DARK MODE / OVERLAY
+   ═══════════════════════════ */
+function toggleDark(){
+  const d=document.documentElement.getAttribute('data-theme')==='dark';
+  document.documentElement.setAttribute('data-theme',d?'light':'dark');
+  S.settings.dark=!d; save();
+  const ic=d?'moon':'sun';
+  document.getElementById('btn-dark').innerHTML=`<i class="fas fa-${ic}"></i>`;
+  document.getElementById('sb-dark').innerHTML=`<i class="fas fa-${ic}"></i>`;
+}
+document.getElementById('btn-dark').addEventListener('click',toggleDark);
+document.getElementById('sb-dark').addEventListener('click',toggleDark);
+function openOv(id){document.getElementById(id).classList.add('open');document.body.style.overflow='hidden';}
+function closeOv(id){document.getElementById(id).classList.remove('open');document.body.style.overflow='';}
+document.querySelectorAll('.ov').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)closeOv(o.id);}));
+
+/* ═══════════════════════════
+   URL IMPORT + INIT
+   ═══════════════════════════ */
+function chkUrl(){
+  const h=location.hash; if(!h.startsWith('#import='))return;
+  try{
+    // Only single trip object encoded; recipient cannot see other trips
+    const t=JSON.parse(decodeURIComponent(atob(h.slice(8))));
+    if(!t.name||!t.members) throw new Error('invalid');
+    const ex=S.trips.find(e=>e.inviteCode===t.inviteCode);
+    if(ex){ S.curTrip=ex.id; save(); toast('帳本已存在，已切換',''); }
+    else{ t.id=gid(); t.settlements=[]; S.trips.push(t); S.curTrip=t.id; save(); toast(`「${t.name}」已從分享連結匯入！`,'ok'); }
+    history.replaceState(null,'',location.pathname);
+  }catch(e){ toast('分享連結無效','err'); }
+}
+function init(){
+  load();
+  if(S.settings?.dark){document.documentElement.setAttribute('data-theme','dark');document.getElementById('btn-dark').innerHTML='<i class="fas fa-sun"></i>';document.getElementById('sb-dark').innerHTML='<i class="fas fa-sun"></i>';}
+  chkUrl();
+  if(!S.trips.length) demo();
+  refreshHome();
+}
+document.addEventListener('DOMContentLoaded',init);
+/* iOS 雙擊縮放防止 */
+(function(){
+  let lastTouchEnd = 0;
+  document.addEventListener('touchend', function(e){
+    const now = Date.now();
+    if(now - lastTouchEnd < 300){
+      const tag = e.target.tagName;
+      const isInteractive = (
+        tag === 'BUTTON' || tag === 'A' || tag === 'INPUT' ||
+        tag === 'SELECT' || tag === 'LABEL' ||
+        e.target.classList.contains('np') ||
+        e.target.classList.contains('cur-pill') ||
+        e.target.classList.contains('cc') ||
+        e.target.classList.contains('pc') ||
+        e.target.classList.contains('nb') ||
+        e.target.classList.contains('sm-btn') ||
+        e.target.classList.contains('csp-tab')
+      );
+      if(isInteractive) e.preventDefault();
+    }
+    lastTouchEnd = now;
+  }, {passive: false});
+})();
+if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+</script>
+</body>
+</html>
