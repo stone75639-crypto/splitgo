@@ -18,13 +18,13 @@
    🔥 FIREBASE 設定 — 請將下方替換成你的設定值
    ══════════════════════════════════════════════ */
 window.FIREBASE_CONFIG = {
-  apiKey: "AIzaSyCxnzv4wUntTDhIlV8G1PAQ0-w3Rs_coi4",
-  authDomain: "splitgo-c2704.firebaseapp.com",
-  databaseURL: "https://splitgo-c2704-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "splitgo-c2704",
-  storageBucket: "splitgo-c2704.firebasestorage.app",
-  messagingSenderId: "1010164056506",
-  appId: "1:1010164056506:web:7bd2be71302894100a9d83"
+  apiKey:            "YOUR_API_KEY",
+  authDomain:        "YOUR_PROJECT_ID.firebaseapp.com",
+  databaseURL:       "https://YOUR_PROJECT_ID-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "YOUR_PROJECT_ID",
+  storageBucket:     "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId:             "YOUR_APP_ID"
 };
 </script>
 <!-- Firebase SDK -->
@@ -118,16 +118,16 @@ input,select{font-family:inherit;outline:none;border:none;touch-action:manipulat
 .ev-sw-btn{background:var(--pr);color:#fff;border-radius:7px;padding:4px 9px;font-size:11px;font-weight:700;white-space:nowrap;}
 
 /* Form container: fills remaining height, no scroll */
-#entry-form{flex:1;display:flex;flex-direction:column;gap:0;overflow:hidden;padding:6px 10px 0;}
+#entry-form{flex:1;display:flex;flex-direction:column;gap:0;overflow-y:auto;padding:6px 10px 0;}
 
 /* ── AMOUNT + NUMPAD ROW ── */
-.top-row{display:flex;gap:8px;flex-shrink:0;margin-bottom:6px;}
+.top-row{display:flex;gap:8px;flex:1;min-height:0;margin-bottom:6px;}
 
 /* Amount display (left side) — compact */
 .amt-box{
   flex:1;background:var(--surf);border-radius:var(--r);border:1.5px solid var(--bdr);
   padding:6px 10px;display:flex;flex-direction:column;gap:3px;
-  min-width:0;
+  min-width:0;min-height:0;
 }
 .amt-label{font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px;}
 .amt-val{font-size:22px;font-weight:900;color:var(--t1);line-height:1.15;letter-spacing:-1px;white-space:nowrap;overflow:hidden;}
@@ -142,7 +142,7 @@ input,select{font-family:inherit;outline:none;border:none;touch-action:manipulat
 /* Numpad (right side) — bigger */
 #numpad{
   flex:1;flex-shrink:0;background:var(--surf);border-radius:var(--r);border:1.5px solid var(--bdr);
-  padding:5px;display:grid;grid-template-columns:repeat(3,1fr);gap:4px;
+  padding:5px;display:grid;grid-template-columns:repeat(3,1fr);gap:4px;align-content:start;
 }
 .np{
   height:38px;border-radius:8px;background:var(--surf2);border:1px solid var(--bdr);
@@ -165,7 +165,7 @@ input,select{font-family:inherit;outline:none;border:none;touch-action:manipulat
 .rl{font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;display:flex;align-items:center;justify-content:space-between;}
 
 /* Category chips */
-.cat-row{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;padding-bottom:1px;}
+.cat-row{display:flex;gap:5px;flex-wrap:wrap;overflow-x:visible;padding-bottom:1px;flex:1;align-content:flex-start;}
 .cat-row::-webkit-scrollbar{display:none;}
 .cc{display:flex;align-items:center;gap:4px;padding:4px 9px;border-radius:10px;border:1.5px solid var(--bdr);background:var(--surf2);cursor:pointer;transition:all .12s;flex-shrink:0;font-size:12px;color:var(--t2);font-weight:500;touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
 .cc.on{border-color:var(--pr);background:var(--pr-l);color:var(--pr);font-weight:700;}
@@ -204,6 +204,7 @@ input,select{font-family:inherit;outline:none;border:none;touch-action:manipulat
 #sub-row{
   padding:6px 10px 8px;background:var(--surf);border-top:1px solid var(--bdr);
   flex-shrink:0;display:flex;gap:6px;align-items:center;
+  position:relative;z-index:400;
 }
 #btn-sub{flex:1;padding:11px;border-radius:10px;background:linear-gradient(135deg,var(--pr),var(--pr-d));color:#fff;font-size:14px;font-weight:700;box-shadow:0 3px 12px rgba(0,188,212,.4);transition:all .2s;display:flex;align-items:center;justify-content:center;gap:6px;}
 #btn-sub:active{transform:scale(.97);}
