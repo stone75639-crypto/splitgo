@@ -121,14 +121,16 @@ input,select{font-family:inherit;outline:none;border:none;touch-action:manipulat
 /* Amount display (left side) — compact */
 .amt-box{
   flex:1;background:var(--surf);border-radius:var(--r);border:1.5px solid var(--bdr);
-  padding:6px 10px;display:flex;flex-direction:column;justify-content:space-between;
+  padding:6px 10px;display:flex;flex-direction:column;gap:3px;
   min-width:0;
 }
 .amt-label{font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.7px;margin-bottom:2px;}
 .amt-val{font-size:22px;font-weight:900;color:var(--t1);line-height:1.15;letter-spacing:-1px;white-space:nowrap;overflow:hidden;}
 .amt-val.ph{color:var(--th);}
-.amt-twd{font-size:9.5px;color:var(--t2);min-height:12px;margin-top:1px;}
-.amt-cur-row{display:flex;align-items:center;flex-wrap:wrap;gap:3px;margin-top:5px;}
+.amt-twd{font-size:9.5px;color:var(--t2);min-height:10px;}
+.amt-cat-label{font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.7px;margin-top:3px;}
+.amt-cur-row{display:flex;align-items:center;flex-wrap:nowrap;overflow-x:auto;gap:3px;scrollbar-width:none;}
+.amt-cur-row::-webkit-scrollbar{display:none;}
 .cur-pill{padding:2px 7px;border-radius:10px;border:1px solid var(--bdr);background:var(--surf2);color:var(--t2);font-size:9.5px;font-weight:700;cursor:pointer;transition:all .12s;touch-action:manipulation;}
 .cur-pill.on{background:var(--pr);border-color:var(--pr);color:#fff;}
 
@@ -138,7 +140,7 @@ input,select{font-family:inherit;outline:none;border:none;touch-action:manipulat
   padding:5px;display:grid;grid-template-columns:repeat(3,1fr);gap:4px;
 }
 .np{
-  height:44px;border-radius:8px;background:var(--surf2);border:1px solid var(--bdr);
+  height:38px;border-radius:8px;background:var(--surf2);border:1px solid var(--bdr);
   font-size:clamp(16px,4.5vw,22px);;font-weight:500;color:var(--t1);display:flex;align-items:center;justify-content:center;
   transition:background .1s,border-color .1s;user-select:none;touch-action:manipulation;
   -webkit-tap-highlight-color:transparent;
@@ -464,11 +466,9 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
     <div class="top-row">
       <!-- Amount box -->
       <div class="amt-box">
-        <div>
-          <div class="amt-label">金額</div>
-          <div class="amt-val ph" id="amt-disp">0</div>
-          <div class="amt-twd" id="amt-twd"></div>
-        </div>
+        <div class="amt-label">金額</div>
+        <div class="amt-val ph" id="amt-disp">0</div>
+        <div class="amt-twd" id="amt-twd"></div>
         <div class="amt-cur-row" id="cur-row">
           <div class="cur-pill on" data-c="TWD" onclick="setCur('TWD')">TWD</div>
           <div class="cur-pill" data-c="JPY" onclick="setCur('JPY')">JPY</div>
@@ -478,6 +478,8 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
           <div class="cur-pill" data-c="HKD" onclick="setCur('HKD')">HKD</div>
           <div class="cur-pill" data-c="GBP" onclick="setCur('GBP')">GBP</div>
         </div>
+        <div class="amt-cat-label">類別</div>
+        <div class="cat-row" id="cat-row"></div>
       </div>
       <!-- Numpad -->
       <div id="numpad">
@@ -494,12 +496,6 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
         <button class="np" data-n=".">.</button>
         <button class="np del" id="np-del"><i class="fas fa-delete-left"></i></button>
       </div>
-    </div>
-
-    <!-- Category -->
-    <div class="c-row">
-      <div class="rl">類別</div>
-      <div class="cat-row" id="cat-row"></div>
     </div>
 
     <!-- Desc -->
