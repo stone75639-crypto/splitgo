@@ -18,13 +18,13 @@
    🔥 FIREBASE 設定 — 請將下方替換成你的設定值
    ══════════════════════════════════════════════ */
 window.FIREBASE_CONFIG = {
-  apiKey: "AIzaSyCxnzv4wUntTDhIlV8G1PAQ0-w3Rs_coi4",
-  authDomain: "splitgo-c2704.firebaseapp.com",
-  databaseURL: "https://splitgo-c2704-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "splitgo-c2704",
-  storageBucket: "splitgo-c2704.firebasestorage.app",
-  messagingSenderId: "1010164056506",
-  appId: "1:1010164056506:web:7bd2be71302894100a9d83"
+  apiKey:            "YOUR_API_KEY",
+  authDomain:        "YOUR_PROJECT_ID.firebaseapp.com",
+  databaseURL:       "https://YOUR_PROJECT_ID-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "YOUR_PROJECT_ID",
+  storageBucket:     "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId:             "YOUR_APP_ID"
 };
 </script>
 <!-- Firebase SDK -->
@@ -93,7 +93,7 @@ input,select{font-family:inherit;outline:none;border:none;touch-action:manipulat
 #main-wrap{flex:1;display:flex;flex-direction:column;overflow:hidden;}
 .screen{display:none;flex:1;overflow-y:auto;padding-bottom:calc(var(--nav) + 4px);}
 .screen.active{display:flex;flex-direction:column;}
-#scr-home{overflow:hidden;padding-bottom:0;}
+#scr-home{overflow:hidden;padding-bottom:0;position:relative;}
 
 /* ── BOTTOM NAV ── */
 #bot-nav{height:var(--nav);background:var(--surf);border-top:1px solid var(--bdr);display:flex;align-items:center;position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;z-index:100;padding:0 2px;flex-shrink:0;}
@@ -118,10 +118,10 @@ input,select{font-family:inherit;outline:none;border:none;touch-action:manipulat
 .ev-sw-btn{background:var(--pr);color:#fff;border-radius:7px;padding:4px 9px;font-size:11px;font-weight:700;white-space:nowrap;}
 
 /* Form container: fills remaining height, no scroll */
-#entry-form{flex:1;display:flex;flex-direction:column;gap:0;overflow-y:auto;padding:6px 10px 0;}
+#entry-form{flex:1;display:flex;flex-direction:column;gap:0;overflow-y:auto;padding:4px 10px 0;}
 
 /* ── AMOUNT + NUMPAD ROW ── */
-.top-row{display:flex;gap:8px;flex:1;min-height:0;margin-bottom:6px;}
+.top-row{display:flex;gap:8px;flex:1;min-height:0;margin-bottom:4px;}
 
 /* Amount display (left side) — compact */
 .amt-box{
@@ -159,10 +159,10 @@ input,select{font-family:inherit;outline:none;border:none;touch-action:manipulat
 /* ── COMPACT ROWS ── */
 .c-row{
   background:var(--surf);border-radius:var(--r);border:1.5px solid var(--bdr);
-  padding:7px 10px;flex-shrink:0;margin-bottom:5px;
+  padding:5px 10px;flex-shrink:0;margin-bottom:4px;
 }
 .c-row:last-of-type{margin-bottom:0;}
-.rl{font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px;display:flex;align-items:center;justify-content:space-between;}
+.rl{font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.7px;margin-bottom:3px;display:flex;align-items:center;justify-content:space-between;}
 
 /* Category chips */
 .cat-row{display:flex;gap:5px;flex-wrap:wrap;overflow-x:visible;padding-bottom:1px;flex:1;align-content:flex-start;}
@@ -178,9 +178,9 @@ input,select{font-family:inherit;outline:none;border:none;touch-action:manipulat
 .people-scr{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;padding-bottom:1px;}
 .people-scr::-webkit-scrollbar{display:none;}
 .pc{
-  display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 7px;
+  display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 6px;
   border-radius:10px;border:2px solid var(--bdr);background:var(--surf2);
-  cursor:pointer;transition:all .13s;flex-shrink:0;min-width:48px;
+  cursor:pointer;transition:all .13s;flex-shrink:0;min-width:44px;
   user-select:none;touch-action:manipulation;-webkit-tap-highlight-color:transparent;
 }
 .pav{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;}
