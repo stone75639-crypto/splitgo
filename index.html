@@ -1088,22 +1088,23 @@ function renderCspMembers(){
   const t=tr(); if(!t) return;
   const totalAmt=parseFloat(eAmt)||0;
 
-  // 排除的人排到最後，參與的排前面
   const active   = eSplits.filter(m=>!cspExcluded[m]);
   const excluded = eSplits.filter(m=>cspExcluded[m]);
   const ordered  = [...active, ...excluded];
-  const lastActive = active.length>0 ? active[active.length-1] : null;
+
+  // 唯一還沒輸入的人（undefined）且 active >= 2 才顯示自動計算
+  const emptyActive = active.filter(m=>customAmts[m]===undefined||customAmts[m]===null||customAmts[m]==='');
+  const autoTarget = (emptyActive.length===1 && active.length>=2) ? emptyActive[0] : null;
 
   const html = ordered.map(m=>{
     const idx = aIdx(m,t.members);
     const isExcluded = !!cspExcluded[m];
-    const isLast = (m === lastActive) && active.length >= 2;
+    const isAuto = (m === autoTarget);
     let inputHtml='';
 
     if(cspTab==='amt'){
       const val = customAmts[m]!==undefined && customAmts[m]!==null ? customAmts[m] : '';
-      if(isLast){
-        // 最後一人：顯示自動計算按鈕
+      if(isAuto){
         const others = active.filter(x=>x!==m);
         const sumOthers = others.reduce((s,x)=>s+(parseFloat(customAmts[x])||0),0);
         const remain = Math.round((totalAmt - sumOthers)*100)/100;
@@ -1180,10 +1181,23 @@ function updateAutoBtn(){
   const totalAmt=parseFloat(eAmt)||0;
   const active=eSplits.filter(m=>!cspExcluded[m]);
   if(active.length<2) return;
-  const lastM=active[active.length-1];
+  // 找唯一還沒輸入的人
+  const emptyActive=active.filter(m=>customAmts[m]===undefined||customAmts[m]===null||customAmts[m]==='');
+  if(emptyActive.length!==1) {
+    // 不只一個空白時，如果有按鈕就重繪（按鈕應消失）
+    const btn=document.querySelector('.csp-auto-btn');
+    if(btn) renderCspMembers();
+    return;
+  }
+  const autoM=emptyActive[0];
   const btn=document.querySelector('.csp-auto-btn');
-  if(!btn) return;
-  const others=active.filter(x=>x!==lastM);
+  if(!btn){
+    // 按鈕還不存在，需要重繪讓它出現
+    renderCspMembers();
+    return;
+  }
+  // 按鈕已存在，只更新數字
+  const others=active.filter(x=>x!==autoM);
   const sumOthers=others.reduce((s,x)=>s+(parseFloat(customAmts[x])||0),0);
   const remain=Math.round((totalAmt-sumOthers)*100)/100;
   btn.textContent=`= ${sym(eCur)}${remain>=0?remain:0}`;
