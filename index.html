@@ -18,13 +18,13 @@
    🔥 FIREBASE 設定 — 請將下方替換成你的設定值
    ══════════════════════════════════════════════ */
 window.FIREBASE_CONFIG = {
-  apiKey: "AIzaSyCxnzv4wUntTDhIlV8G1PAQ0-w3Rs_coi4",
-  authDomain: "splitgo-c2704.firebaseapp.com",
-  databaseURL: "https://splitgo-c2704-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "splitgo-c2704",
-  storageBucket: "splitgo-c2704.firebasestorage.app",
-  messagingSenderId: "1010164056506",
-  appId: "1:1010164056506:web:7bd2be71302894100a9d83"
+  apiKey:            "YOUR_API_KEY",
+  authDomain:        "YOUR_PROJECT_ID.firebaseapp.com",
+  databaseURL:       "https://YOUR_PROJECT_ID-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "YOUR_PROJECT_ID",
+  storageBucket:     "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId:             "YOUR_APP_ID"
 };
 </script>
 <!-- Firebase SDK -->
@@ -65,7 +65,7 @@ try {
 /* ── RESET ── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 html{font-size:15px;-webkit-text-size-adjust:100%;touch-action:manipulation;}
-body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--t1);overflow-x:hidden;transition:background .25s,color .25s;}
+body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--t1);overflow-x:hidden;transition:background .25s,color .25s;touch-action:manipulation;}
 button{cursor:pointer;border:none;outline:none;font-family:inherit;background:none;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
 input,select{font-family:inherit;outline:none;border:none;touch-action:manipulation;}
 ::-webkit-scrollbar{width:2px;height:2px;}
@@ -1684,29 +1684,7 @@ function init(){
   }
 }
 document.addEventListener('DOMContentLoaded',init);
-/* iOS 雙擊縮放防止 */
-(function(){
-  let lastTouchEnd = 0;
-  document.addEventListener('touchend', function(e){
-    const now = Date.now();
-    if(now - lastTouchEnd < 300){
-      const tag = e.target.tagName;
-      const isInteractive = (
-        tag === 'BUTTON' || tag === 'A' || tag === 'INPUT' ||
-        tag === 'SELECT' || tag === 'LABEL' ||
-        e.target.classList.contains('np') ||
-        e.target.classList.contains('cur-pill') ||
-        e.target.classList.contains('cc') ||
-        e.target.classList.contains('pc') ||
-        e.target.classList.contains('nb') ||
-        e.target.classList.contains('sm-btn') ||
-        e.target.classList.contains('csp-tab')
-      );
-      if(isInteractive) e.preventDefault();
-    }
-    lastTouchEnd = now;
-  }, {passive: false});
-})();
+/* 防雙擊縮放：已改為純 CSS touch-action:manipulation，不影響連續點擊 */
 if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 
 /* ═══════════════════════════
