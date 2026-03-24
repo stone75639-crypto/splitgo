@@ -12,6 +12,34 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getDatabase, ref, onValue, set, update, remove, push, get }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+
+/* ══════════════════════════════════════════════
+   🔥 FIREBASE 設定 — 請將下方替換成你的設定值
+   ══════════════════════════════════════════════ */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCxnzv4wUntTDhIlV8G1PAQ0-w3Rs_coi4",
+  authDomain: "splitgo-c2704.firebaseapp.com",
+  databaseURL: "https://splitgo-c2704-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "splitgo-c2704",
+  storageBucket: "splitgo-c2704.firebasestorage.app",
+  messagingSenderId: "1010164056506",
+  appId: "1:1010164056506:web:7bd2be71302894100a9d83"
+};
+
+// 初始化 Firebase
+const fbApp  = initializeApp(FIREBASE_CONFIG);
+const db     = getDatabase(fbApp);
+
+// 掛載到 window 供主程式使用
+window._fb = { db, ref, onValue, set, update, remove, push, get };
+window._fbReady = true;
+window.dispatchEvent(new Event('fb-ready'));
+</script>
 <style>
 /* ── VARS ── */
 :root{
@@ -403,6 +431,7 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
 <header id="hdr">
   <div class="logo"><i class="fas fa-bolt"></i>SplitGo</div>
   <div class="hdr-r">
+      <button class="ic-btn" id="sync-status" title="同步狀態" style="cursor:default;"><i class="fas fa-wifi-slash" style="color:var(--th)"></i></button>
     <button class="ic-btn" id="btn-dark"><i class="fas fa-moon"></i></button>
     <button class="ic-btn" onclick="go('trips')"><i class="fas fa-layer-group"></i></button>
     <button class="ic-btn" id="btn-share"><i class="fas fa-share-nodes"></i></button>
@@ -704,11 +733,94 @@ let editId = null;
 let modalMembers = [];
 
 /* ═══════════════════════════
-   PERSIST
+   PERSIST (localStorage + Firebase)
    ═══════════════════════════ */
-function save(){ try{ localStorage.setItem(STORE, JSON.stringify(S)); }catch(e){} }
+function save(){
+  try{ localStorage.setItem(STORE, JSON.stringify(S)); }catch(e){}
+  fbSaveAll();
+}
 function load(){
   try{ const r=localStorage.getItem(STORE); if(r){ const p=JSON.parse(r); S={...S,...p}; } }catch(e){}
+}
+
+/* ── Firebase helpers ── */
+let _fbUnsub = null;   // active listener unsubscribe
+let _fbSyncing = false;
+
+function fbEnabled(){
+  return window._fbReady &&
+    window._fb &&
+    FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY";
+}
+
+// Save entire S.trips to Firebase (only trips, not settings — settings stay local)
+function fbSaveAll(){
+  if(!fbEnabled()) return;
+  const {db,ref,set} = window._fb;
+  const data = {};
+  S.trips.forEach(t => { data[t.id] = t; });
+  set(ref(db, 'trips'), data).catch(e => console.warn('fbSaveAll error', e));
+}
+
+// Save / update a single trip
+function fbSaveTrip(trip){
+  if(!fbEnabled()) return;
+  const {db,ref,set} = window._fb;
+  set(ref(db, 'trips/'+trip.id), trip).catch(e => console.warn('fbSaveTrip error', e));
+}
+
+// Delete a single trip
+function fbDeleteTrip(id){
+  if(!fbEnabled()) return;
+  const {db,ref,remove} = window._fb;
+  remove(ref(db, 'trips/'+id)).catch(e => console.warn('fbDeleteTrip error', e));
+}
+
+// Start listening for real-time changes
+function fbListen(){
+  if(!fbEnabled()) return;
+  if(_fbUnsub) _fbUnsub();
+  const {db,ref,onValue} = window._fb;
+  _fbUnsub = onValue(ref(db,'trips'), snap => {
+    if(_fbSyncing) return;
+    const data = snap.val();
+    if(!data) return;
+    const remoteTripIds = Object.keys(data);
+    remoteTripIds.forEach(id => {
+      const remote = data[id];
+      const local  = S.trips.find(t => t.id === id);
+      if(!local){
+        // New trip from another device → add it
+        S.trips.push(remote);
+        toast('📡 新帳本已同步：' + remote.name, 'ok');
+      } else {
+        // Merge: take whichever has more expenses
+        if((remote.expenses||[]).length > local.expenses.length){
+          Object.assign(local, remote);
+          toast('🔄 帳目已同步', '');
+        }
+      }
+    });
+    // If current trip was updated, refresh UI
+    try{ localStorage.setItem(STORE, JSON.stringify(S)); }catch(e){}
+    refreshHome();
+    const active = document.querySelector('.screen.active');
+    if(active){
+      if(active.id==='scr-list')     renderList();
+      if(active.id==='scr-settle')   renderSettle();
+      if(active.id==='scr-analytics')renderAnalytics();
+      if(active.id==='scr-trips')    renderTrips();
+    }
+  }, e => console.warn('fbListen error', e));
+}
+
+// Sync indicator in header
+function setSyncStatus(status){
+  const el = document.getElementById('sync-status');
+  if(!el) return;
+  if(status==='on')  { el.innerHTML='<i class="fas fa-wifi" style="color:var(--ok)"></i>';   el.title='已連線同步'; }
+  if(status==='off') { el.innerHTML='<i class="fas fa-wifi-slash" style="color:var(--th)"></i>'; el.title='未設定同步'; }
+  if(status==='err') { el.innerHTML='<i class="fas fa-triangle-exclamation" style="color:var(--warn)"></i>'; el.title='同步錯誤'; }
 }
 
 /* ═══════════════════════════
@@ -1086,7 +1198,8 @@ function doSubmit(){
     t.expenses.push(exp);
     toast('✅ 記帳成功！','ok');
   }
-  save();
+  try{localStorage.setItem(STORE,JSON.stringify(S));}catch(e){}
+  fbSaveTrip(t);
   eAmt=''; document.getElementById('di').value='';
   splitMode='even'; closeCustomPanel();
   document.getElementById('sm-even').classList.add('on');
@@ -1452,10 +1565,14 @@ function saveTrip(){
   CURS.filter(c=>c!=='TWD').forEach(c=>{rates[c]=parseFloat(document.getElementById('rm-'+c)?.value)||DEF_RATES[c];});
   if(id){
     const t=S.trips.find(t=>t.id===id);
-    if(t){t.name=name;t.currency=currency;t.members=modalMembers;t.rates=rates; toast('帳本已更新','ok');}
+    if(t){t.name=name;t.currency=currency;t.members=modalMembers;t.rates=rates;
+      try{localStorage.setItem(STORE,JSON.stringify(S));}catch(e){}
+      fbSaveTrip(t); toast('帳本已更新','ok');}
   } else {
     const newT={id:gid(),name,currency,members:modalMembers,rates,inviteCode:inviteCode||gc(),createdAt:Date.now(),expenses:[],settlements:[]};
-    S.trips.push(newT);S.curTrip=newT.id; toast('帳本已建立 🎉','ok');
+    S.trips.push(newT);S.curTrip=newT.id;
+    try{localStorage.setItem(STORE,JSON.stringify(S));}catch(e){}
+    fbSaveTrip(newT); toast('帳本已建立 🎉','ok');
   }
   save(); closeOv('ov-trip'); renderTrips(); refreshHome();
 }
@@ -1465,6 +1582,7 @@ function deleteTrip(){
   if(!confirm(`確定刪除「${t.name}」？所有記帳將一併刪除。`)) return;
   S.trips=S.trips.filter(t=>t.id!==id);
   if(S.curTrip===id) S.curTrip=S.trips[0]?.id||null;
+  fbDeleteTrip(id);
   save(); closeOv('ov-trip'); renderTrips(); refreshHome(); toast('帳本已刪除','');
 }
 
@@ -1552,6 +1670,16 @@ function init(){
   chkUrl();
   if(!S.trips.length) demo();
   refreshHome();
+  // Start Firebase sync (waits for SDK module to be ready)
+  if(window._fbReady){
+    fbListen(); setSyncStatus('on');
+  } else {
+    window.addEventListener('fb-ready', ()=>{
+      fbListen(); setSyncStatus('on');
+    });
+    // If firebase config is still placeholder, show offline status
+    setTimeout(()=>{ if(!window._fbReady) setSyncStatus('off'); }, 3000);
+  }
 }
 document.addEventListener('DOMContentLoaded',init);
 /* iOS 雙擊縮放防止 */
