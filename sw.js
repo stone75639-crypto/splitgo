@@ -1,5 +1,5 @@
 // ★ 每次更新 index.html 後，把版本號 +1，iOS 就會自動清除舊快取
-const CACHE_NAME = 'splitgo-v15';
+const CACHE_NAME = 'splitgo-v16';
 
 const STATIC_ASSETS = [
   'https://cdn.jsdelivr.net/npm/chart.js',
