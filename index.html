@@ -1109,10 +1109,10 @@ function renderCspMembers(){
         const remain = Math.round((totalAmt - sumOthers)*100)/100;
         inputHtml=`
           <button class="csp-auto-btn" onclick="autoFillLast('${m}')">= ${sym(eCur)}${remain>=0?remain:0}</button>
-          <input class="csp-inp" type="number" id="csp-${m}" value="${val}" min="0" step="0.01" placeholder="金額"
+          <input class="csp-inp" type="number" inputmode="decimal" id="csp-${m}" value="${val}" min="0" step="0.01" placeholder="金額"
             oninput="onCspAmt('${m}',this.value)">`;
       } else {
-        inputHtml=`<input class="csp-inp" type="number" id="csp-${m}" value="${val}" min="0" step="0.01" placeholder="金額"
+        inputHtml=`<input class="csp-inp" type="number" inputmode="decimal" id="csp-${m}" value="${val}" min="0" step="0.01" placeholder="金額"
           ${isExcluded?'disabled':''} oninput="onCspAmt('${m}',this.value)">`;
       }
     } else {
@@ -1120,7 +1120,7 @@ function renderCspMembers(){
       const derived = pval!=='' ? Math.round(parseFloat(pval)/100*totalAmt*100)/100 : '';
       const hint = pval!=='' ? `${sym(eCur)}${derived}` : '';
       inputHtml=`<span class="csp-hint">${hint}</span>
-        <input class="csp-inp" type="number" id="csp-${m}" value="${pval}" min="0" max="100" step="1" placeholder="%"
+        <input class="csp-inp" type="number" inputmode="numeric" id="csp-${m}" value="${pval}" min="0" max="100" step="1" placeholder="%"
           ${isExcluded?'disabled':''} oninput="onCspPct('${m}',this.value)">
         <span style="font-size:11px;color:var(--t2);margin-left:2px;">%</span>`;
     }
