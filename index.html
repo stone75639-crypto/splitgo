@@ -1176,31 +1176,50 @@ function onCspPct(name, val){
   updateCspSum();
 }
 
-// 只更新自動計算按鈕的顯示數字，不重繪輸入框（避免失去焦點）
+// 更新自動計算按鈕 — 永遠不呼叫 renderCspMembers，直接操作 DOM
 function updateAutoBtn(){
   const totalAmt=parseFloat(eAmt)||0;
   const active=eSplits.filter(m=>!cspExcluded[m]);
-  if(active.length<2) return;
+
   // 找唯一還沒輸入的人
-  const emptyActive=active.filter(m=>customAmts[m]===undefined||customAmts[m]===null||customAmts[m]==='');
-  if(emptyActive.length!==1) {
-    // 不只一個空白時，如果有按鈕就重繪（按鈕應消失）
-    const btn=document.querySelector('.csp-auto-btn');
-    if(btn) renderCspMembers();
-    return;
-  }
-  const autoM=emptyActive[0];
-  const btn=document.querySelector('.csp-auto-btn');
-  if(!btn){
-    // 按鈕還不存在，需要重繪讓它出現
-    renderCspMembers();
-    return;
-  }
-  // 按鈕已存在，只更新數字
-  const others=active.filter(x=>x!==autoM);
-  const sumOthers=others.reduce((s,x)=>s+(parseFloat(customAmts[x])||0),0);
-  const remain=Math.round((totalAmt-sumOthers)*100)/100;
-  btn.textContent=`= ${sym(eCur)}${remain>=0?remain:0}`;
+  const emptyActive=active.filter(m=>{
+    const v=customAmts[m];
+    return v===undefined||v===null||v==='';
+  });
+  const autoM=(emptyActive.length===1 && active.length>=2) ? emptyActive[0] : null;
+
+  // 找所有 .csp-member-row，逐一處理
+  document.querySelectorAll('#csp-members .csp-member-row').forEach(row=>{
+    const nameEl=row.querySelector('.csp-name');
+    if(!nameEl) return;
+    const m=nameEl.textContent.trim();
+    const existingBtn=row.querySelector('.csp-auto-btn');
+
+    if(m===autoM){
+      // 這個人需要顯示按鈕
+      const others=active.filter(x=>x!==autoM);
+      const sumOthers=others.reduce((s,x)=>s+(parseFloat(customAmts[x])||0),0);
+      const remain=Math.round((totalAmt-sumOthers)*100)/100;
+      const label=`= ${sym(eCur)}${remain>=0?remain:0}`;
+      if(existingBtn){
+        // 按鈕已存在，只更新文字
+        existingBtn.textContent=label;
+      } else {
+        // 按鈕不存在，插入到 input 前面
+        const inp=row.querySelector('.csp-inp');
+        if(inp){
+          const btn=document.createElement('button');
+          btn.className='csp-auto-btn';
+          btn.textContent=label;
+          btn.onclick=()=>autoFillLast(m);
+          row.insertBefore(btn,inp);
+        }
+      }
+    } else {
+      // 這個人不需要按鈕，移除（如果有的話）
+      if(existingBtn) existingBtn.remove();
+    }
+  });
 }
 
 function updateCspSum(){
