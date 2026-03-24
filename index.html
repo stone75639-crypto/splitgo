@@ -1063,8 +1063,12 @@ function openCustomPanel(){
   initCustomAmts();
   renderCspMembers();
   document.getElementById('custom-split-panel').classList.add('open');
+  document.getElementById('sub-row').style.display='none';
 }
-function closeCustomPanel(){ document.getElementById('custom-split-panel').classList.remove('open'); }
+function closeCustomPanel(){
+  document.getElementById('custom-split-panel').classList.remove('open');
+  document.getElementById('sub-row').style.display='';
+}
 
 function setCspTab(tab){
   cspTab=tab;
