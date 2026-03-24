@@ -12,33 +12,38 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Firebase 設定（全域可存取） -->
+<script>
+/* ══════════════════════════════════════════════
+   🔥 FIREBASE 設定 — 請將下方替換成你的設定值
+   ══════════════════════════════════════════════ */
+window.FIREBASE_CONFIG = {
+  apiKey:            "YOUR_API_KEY",
+  authDomain:        "YOUR_PROJECT_ID.firebaseapp.com",
+  databaseURL:       "https://YOUR_PROJECT_ID-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:         "YOUR_PROJECT_ID",
+  storageBucket:     "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId:             "YOUR_APP_ID"
+};
+</script>
 <!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getDatabase, ref, onValue, set, update, remove, push, get }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 
-/* ══════════════════════════════════════════════
-   🔥 FIREBASE 設定 — 請將下方替換成你的設定值
-   ══════════════════════════════════════════════ */
-const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyCxnzv4wUntTDhIlV8G1PAQ0-w3Rs_coi4",
-  authDomain: "splitgo-c2704.firebaseapp.com",
-  databaseURL: "https://splitgo-c2704-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "splitgo-c2704",
-  storageBucket: "splitgo-c2704.firebasestorage.app",
-  messagingSenderId: "1010164056506",
-  appId: "1:1010164056506:web:7bd2be71302894100a9d83"
-};
-
-// 初始化 Firebase
-const fbApp  = initializeApp(FIREBASE_CONFIG);
-const db     = getDatabase(fbApp);
-
-// 掛載到 window 供主程式使用
-window._fb = { db, ref, onValue, set, update, remove, push, get };
-window._fbReady = true;
-window.dispatchEvent(new Event('fb-ready'));
+// 初始化 Firebase（使用全域設定）
+try {
+  const fbApp = initializeApp(window.FIREBASE_CONFIG);
+  const db    = getDatabase(fbApp);
+  window._fb  = { db, ref, onValue, set, update, remove, push, get };
+  window._fbReady = true;
+  window.dispatchEvent(new Event('fb-ready'));
+} catch(e) {
+  console.warn('Firebase init failed:', e);
+  window._fbReady = false;
+}
 </script>
 <style>
 /* ── VARS ── */
@@ -746,7 +751,8 @@ let _fbSyncing = false;
 function fbEnabled(){
   return window._fbReady &&
     window._fb &&
-    FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY";
+    window.FIREBASE_CONFIG &&
+    window.FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY";
 }
 
 // Save entire S.trips to Firebase (only trips, not settings — settings stay local)
@@ -1702,6 +1708,28 @@ document.addEventListener('DOMContentLoaded',init);
   }, {passive: false});
 })();
 if('serviceWorker' in navigator) window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+
+/* ═══════════════════════════
+   觸覺回饋 (Android)
+   ═══════════════════════════ */
+(function(){
+  function haptic(type){
+    if(navigator.vibrate){
+      if(type==='light')  navigator.vibrate(8);
+      else if(type==='medium') navigator.vibrate(15);
+    }
+  }
+  document.addEventListener('touchstart', function(e){
+    const el = e.target.closest(
+      'button, .np, .cur-pill, .cc, .pc, .nb, .sm-btn, .csp-tab, .mk-btn, .ic-btn, .ev-sw-btn, .ntb, .tb, .tc'
+    );
+    if(!el) return;
+    if(el.classList.contains('np'))                               haptic('light');
+    else if(el.id==='btn-sub' || el.classList.contains('mk-btn')) haptic('medium');
+    else if(el.id==='np-del')                                     haptic('medium');
+    else                                                          haptic('light');
+  }, {passive: true});
+})();
 </script>
 </body>
 </html>
