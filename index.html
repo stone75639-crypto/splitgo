@@ -239,6 +239,11 @@ input,select{font-family:inherit;outline:none;border:none;touch-action:manipulat
 .csp-tab{flex:1;padding:6px;border-radius:8px;border:1.5px solid var(--bdr);background:var(--surf2);font-size:12px;font-weight:700;color:var(--t2);text-align:center;cursor:pointer;transition:all .15s;}
 .csp-tab.on{background:var(--pr);border-color:var(--pr);color:#fff;}
 .csp-member-row{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--bdr);}
+.csp-member-row.excluded{opacity:.38;}
+.csp-member-row.excluded .csp-inp{pointer-events:none;}
+.csp-av-btn{cursor:pointer;border:none;background:none;padding:0;border-radius:50%;transition:transform .15s;}
+.csp-av-btn:active{transform:scale(.9);}
+.csp-auto-btn{padding:3px 8px;border-radius:7px;border:1.5px solid var(--pr);background:var(--pr-l);color:var(--pr);font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;touch-action:manipulation;}
 .csp-member-row:last-child{border-bottom:none;}
 .csp-av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;}
 .csp-name{flex:1;font-size:13px;font-weight:600;}
@@ -1047,16 +1052,18 @@ function togAllSplit(){
 /* ═══════════════════════════
    CUSTOM SPLIT PANEL
    ═══════════════════════════ */
+// cspExcluded: 在自訂面板中暫時排除的成員（不影響主畫面 eSplits）
+let cspExcluded = {};
+
 function initCustomAmts(){
-  const amt=parseFloat(eAmt)||0;
   const n=eSplits.length||1;
-  const each=Math.round(amt/n*100)/100;
-  eSplits.forEach(m=>{ if(!(m in customAmts)) customAmts[m]=each; });
-  // remove members not in splits
+  // 預設空白（undefined = 空白輸入框）
+  eSplits.forEach(m=>{ if(!(m in customAmts)) customAmts[m]=undefined; });
   Object.keys(customAmts).forEach(m=>{ if(!eSplits.includes(m)) delete customAmts[m]; });
-  // reset pct
-  eSplits.forEach(m=>{ if(!(m in customPct)) customPct[m]=Math.round(100/n); });
+  eSplits.forEach(m=>{ if(!(m in customPct)) customPct[m]=undefined; });
   Object.keys(customPct).forEach(m=>{ if(!eSplits.includes(m)) delete customPct[m]; });
+  // 重置排除狀態
+  cspExcluded = {};
 }
 
 function openCustomPanel(){
@@ -1080,60 +1087,116 @@ function setCspTab(tab){
 function renderCspMembers(){
   const t=tr(); if(!t) return;
   const totalAmt=parseFloat(eAmt)||0;
-  const html=eSplits.map((m,i)=>{
-    const idx=aIdx(m,t.members);
-    const isIn=eSplits.includes(m);
+
+  // 排除的人排到最後，參與的排前面
+  const active   = eSplits.filter(m=>!cspExcluded[m]);
+  const excluded = eSplits.filter(m=>cspExcluded[m]);
+  const ordered  = [...active, ...excluded];
+  const lastActive = active.length>0 ? active[active.length-1] : null;
+
+  const html = ordered.map(m=>{
+    const idx = aIdx(m,t.members);
+    const isExcluded = !!cspExcluded[m];
+    const isLast = (m === lastActive) && active.length >= 2;
     let inputHtml='';
+
     if(cspTab==='amt'){
-      const val=customAmts[m]!==undefined ? customAmts[m] : 0;
-      inputHtml=`<input class="csp-inp" type="number" id="csp-${m}" value="${val}" min="0" step="0.01"
-        oninput="onCspAmt('${m}',this.value)">`;
+      const val = customAmts[m]!==undefined && customAmts[m]!==null ? customAmts[m] : '';
+      if(isLast){
+        // 最後一人：顯示自動計算按鈕
+        const others = active.filter(x=>x!==m);
+        const sumOthers = others.reduce((s,x)=>s+(parseFloat(customAmts[x])||0),0);
+        const remain = Math.round((totalAmt - sumOthers)*100)/100;
+        inputHtml=`
+          <button class="csp-auto-btn" onclick="autoFillLast('${m}')">= ${sym(eCur)}${remain>=0?remain:0}</button>
+          <input class="csp-inp" type="number" id="csp-${m}" value="${val}" min="0" step="0.01" placeholder="金額"
+            oninput="onCspAmt('${m}',this.value)">`;
+      } else {
+        inputHtml=`<input class="csp-inp" type="number" id="csp-${m}" value="${val}" min="0" step="0.01" placeholder="金額"
+          ${isExcluded?'disabled':''} oninput="onCspAmt('${m}',this.value)">`;
+      }
     } else {
-      const pval=customPct[m]!==undefined ? customPct[m] : 0;
-      inputHtml=`<input class="csp-inp" type="number" id="csp-${m}" value="${pval}" min="0" max="100" step="1"
-        oninput="onCspPct('${m}',this.value)">
+      const pval = customPct[m]!==undefined && customPct[m]!==null ? customPct[m] : '';
+      const derived = pval!=='' ? Math.round(parseFloat(pval)/100*totalAmt*100)/100 : '';
+      const hint = pval!=='' ? `${sym(eCur)}${derived}` : '';
+      inputHtml=`<span class="csp-hint">${hint}</span>
+        <input class="csp-inp" type="number" id="csp-${m}" value="${pval}" min="0" max="100" step="1" placeholder="%"
+          ${isExcluded?'disabled':''} oninput="onCspPct('${m}',this.value)">
         <span style="font-size:11px;color:var(--t2);margin-left:2px;">%</span>`;
     }
-    // hint: derived amount
-    let hint='';
-    if(cspTab==='pct'){
-      const derived=Math.round((customPct[m]||0)/100*totalAmt*100)/100;
-      hint=`${sym(eCur)}${derived}`;
-    }
-    return `<div class="csp-member-row">
-      <div class="csp-av av${idx}" style="background:${AVC[idx]}">${m[0]}</div>
-      <div class="csp-name">${m}</div>
-      <span class="csp-hint">${hint}</span>
+
+    return `<div class="csp-member-row${isExcluded?' excluded':''}">
+      <button class="csp-av-btn" onclick="toggleCspExclude('${m}')" title="${isExcluded?'點擊加入':'點擊排除'}">
+        <div class="csp-av av${idx}" style="background:${isExcluded?'#ccc':AVC[idx]}">${m[0]}</div>
+      </button>
+      <div class="csp-name" style="${isExcluded?'color:var(--th);text-decoration:line-through;':''}">${m}</div>
       ${inputHtml}
     </div>`;
   }).join('');
+
   document.getElementById('csp-members').innerHTML=html;
   updateCspSum();
 }
 
-function onCspAmt(name, val){
-  customAmts[name]=parseFloat(val)||0;
-  // derive pct
-  const total=parseFloat(eAmt)||1;
-  customPct[name]=Math.round(customAmts[name]/total*100);
-  updateCspSum();
+function toggleCspExclude(m){
+  if(cspExcluded[m]){
+    delete cspExcluded[m];
+  } else {
+    cspExcluded[m]=true;
+    customAmts[m]=undefined;
+    customPct[m]=undefined;
+  }
+  renderCspMembers();
+}
+
+function autoFillLast(m){
+  const totalAmt=parseFloat(eAmt)||0;
+  const active=eSplits.filter(x=>!cspExcluded[x]);
+  const others=active.filter(x=>x!==m);
+  const sumOthers=others.reduce((s,x)=>s+(parseFloat(customAmts[x])||0),0);
+  const remain=Math.round((totalAmt-sumOthers)*100)/100;
+  customAmts[m]=remain>=0?remain:0;
+  customPct[m]=Math.round(customAmts[m]/(totalAmt||1)*100);
+  renderCspMembers();
   renderSplitRow();
+}
+
+function onCspAmt(name, val){
+  customAmts[name]=val===''?undefined:parseFloat(val);
+  const total=parseFloat(eAmt)||1;
+  customPct[name]=customAmts[name]!==undefined?Math.round(customAmts[name]/total*100):undefined;
+  updateCspSum();
+  updateAutoBtn(); // 只更新自動計算按鈕的數字，不重繪整個列表
 }
 function onCspPct(name, val){
   customPct[name]=parseFloat(val)||0;
   const total=parseFloat(eAmt)||0;
   customAmts[name]=Math.round(total*(customPct[name]/100)*100)/100;
   updateCspSum();
-  renderSplitRow();
+}
+
+// 只更新自動計算按鈕的顯示數字，不重繪輸入框（避免失去焦點）
+function updateAutoBtn(){
+  const totalAmt=parseFloat(eAmt)||0;
+  const active=eSplits.filter(m=>!cspExcluded[m]);
+  if(active.length<2) return;
+  const lastM=active[active.length-1];
+  const btn=document.querySelector('.csp-auto-btn');
+  if(!btn) return;
+  const others=active.filter(x=>x!==lastM);
+  const sumOthers=others.reduce((s,x)=>s+(parseFloat(customAmts[x])||0),0);
+  const remain=Math.round((totalAmt-sumOthers)*100)/100;
+  btn.textContent=`= ${sym(eCur)}${remain>=0?remain:0}`;
 }
 
 function updateCspSum(){
   const total=parseFloat(eAmt)||0;
   let sum=0;
+  const active=eSplits.filter(m=>!cspExcluded[m]);
   if(cspTab==='amt'){
-    sum=eSplits.reduce((s,m)=>s+(customAmts[m]||0),0);
+    sum=active.reduce((s,m)=>s+(parseFloat(customAmts[m])||0),0);
   } else {
-    sum=eSplits.reduce((s,m)=>s+(customPct[m]||0),0);
+    sum=active.reduce((s,m)=>s+(parseFloat(customPct[m])||0),0);
   }
   const sv=document.getElementById('csp-sum-val');
   const sl=document.getElementById('csp-sum-label');
@@ -1151,18 +1214,22 @@ function updateCspSum(){
 }
 
 function applyCustomSplit(){
+  const total=parseFloat(eAmt)||0;
+  const active=eSplits.filter(m=>!cspExcluded[m]);
   // Convert pct to amt if in pct mode
   if(cspTab==='pct'){
-    const total=parseFloat(eAmt)||0;
-    eSplits.forEach(m=>{ customAmts[m]=Math.round(total*(customPct[m]||0)/100*100)/100; });
+    active.forEach(m=>{ customAmts[m]=Math.round(total*(parseFloat(customPct[m])||0)/100*100)/100; });
   }
-  // Validate
-  const total=parseFloat(eAmt)||0;
-  const sum=eSplits.reduce((s,m)=>s+(customAmts[m]||0),0);
+  // 排除的人金額設為0
+  eSplits.filter(m=>cspExcluded[m]).forEach(m=>{ customAmts[m]=0; });
+  // Validate (只算active)
+  const sum=active.reduce((s,m)=>s+(parseFloat(customAmts[m])||0),0);
   if(Math.abs(sum-total)>0.05){
     toast(`分攤總計 ${sym(eCur)}${sum.toFixed(2)} ≠ 總金額 ${sym(eCur)}${total.toFixed(2)}，請修正`,'err',3000);
     return;
   }
+  // 主畫面 eSplits 維持不變，排除的人 customAmts 設為 0
+  cspExcluded={};
   closeCustomPanel();
   renderSplitRow();
   toast('自訂分攤已套用 ✓','ok');
