@@ -765,65 +765,70 @@ function fbEnabled(){
     window.FIREBASE_CONFIG.apiKey !== "YOUR_API_KEY";
 }
 
-// Save entire S.trips to Firebase (only trips, not settings — settings stay local)
-function fbSaveAll(){
-  if(!fbEnabled()) return;
-  const {db,ref,set} = window._fb;
-  const data = {};
-  S.trips.forEach(t => { data[t.id] = t; });
-  set(ref(db, 'trips'), data).catch(e => console.warn('fbSaveAll error', e));
-}
+// 每個帳本用 inviteCode 當 Firebase key（只有知道邀請碼的人才能存取）
+function fbKeyOf(trip){ return 'trip_' + trip.inviteCode; }
 
-// Save / update a single trip
+// 儲存單一帳本到 Firebase（用 inviteCode 當路徑）
 function fbSaveTrip(trip){
   if(!fbEnabled()) return;
   const {db,ref,set} = window._fb;
-  set(ref(db, 'trips/'+trip.id), trip).catch(e => console.warn('fbSaveTrip error', e));
+  set(ref(db, 'trips/' + fbKeyOf(trip)), trip)
+    .catch(e => console.warn('fbSaveTrip error', e));
 }
 
-// Delete a single trip
-function fbDeleteTrip(id){
+// 刪除帳本：只刪本地，不動 Firebase
+// 每個人的帳本獨立存在，不因他人刪除而消失
+function fbDeleteTrip(id){ /* 刻意不刪 Firebase，各自管各自 */ }
+
+// 儲存全部（初始化用）
+function fbSaveAll(){
+  S.trips.forEach(t => fbSaveTrip(t));
+}
+
+// 監聽器管理：每個 inviteCode 有自己的監聽器
+const _fbListeners = {}; // { inviteCode: unsubFn }
+
+// 訂閱特定帳本的即時更新（用 inviteCode）
+function fbSubscribe(trip){
   if(!fbEnabled()) return;
-  const {db,ref,remove} = window._fb;
-  remove(ref(db, 'trips/'+id)).catch(e => console.warn('fbDeleteTrip error', e));
+  const code = trip.inviteCode;
+  if(_fbListeners[code]) return; // 已訂閱
+  const {db,ref,onValue} = window._fb;
+  const unsub = onValue(ref(db, 'trips/trip_' + code), snap => {
+    const remote = snap.val();
+    if(!remote) return;
+    const local = S.trips.find(t => t.inviteCode === code);
+    if(!local) return;
+    // 合併：筆數多的優先，同筆數則用較新的
+    const remoteLen = (remote.expenses||[]).length;
+    const localLen  = local.expenses.length;
+    if(remoteLen > localLen){
+      Object.assign(local, remote);
+      try{ localStorage.setItem(STORE, JSON.stringify(S)); }catch(e){}
+      toast('🔄 帳目已同步', '');
+      refreshHome();
+      const active = document.querySelector('.screen.active');
+      if(active){
+        if(active.id==='scr-list')      renderList();
+        if(active.id==='scr-settle')    renderSettle();
+        if(active.id==='scr-analytics') renderAnalytics();
+        if(active.id==='scr-trips')     renderTrips();
+      }
+    }
+  }, e => console.warn('fbSubscribe error', e));
+  _fbListeners[code] = unsub;
 }
 
-// Start listening for real-time changes
+// 取消所有監聽
+function fbUnsubAll(){
+  Object.values(_fbListeners).forEach(fn => { try{fn();}catch(e){} });
+  Object.keys(_fbListeners).forEach(k => delete _fbListeners[k]);
+}
+
+// 啟動：訂閱所有本地已有的帳本
 function fbListen(){
   if(!fbEnabled()) return;
-  if(_fbUnsub) _fbUnsub();
-  const {db,ref,onValue} = window._fb;
-  _fbUnsub = onValue(ref(db,'trips'), snap => {
-    if(_fbSyncing) return;
-    const data = snap.val();
-    if(!data) return;
-    const remoteTripIds = Object.keys(data);
-    remoteTripIds.forEach(id => {
-      const remote = data[id];
-      const local  = S.trips.find(t => t.id === id);
-      if(!local){
-        // New trip from another device → add it
-        S.trips.push(remote);
-        toast('📡 新帳本已同步：' + remote.name, 'ok');
-      } else {
-        // Merge: take whichever has more expenses
-        if((remote.expenses||[]).length > local.expenses.length){
-          Object.assign(local, remote);
-          toast('🔄 帳目已同步', '');
-        }
-      }
-    });
-    // If current trip was updated, refresh UI
-    try{ localStorage.setItem(STORE, JSON.stringify(S)); }catch(e){}
-    refreshHome();
-    const active = document.querySelector('.screen.active');
-    if(active){
-      if(active.id==='scr-list')     renderList();
-      if(active.id==='scr-settle')   renderSettle();
-      if(active.id==='scr-analytics')renderAnalytics();
-      if(active.id==='scr-trips')    renderTrips();
-    }
-  }, e => console.warn('fbListen error', e));
+  S.trips.forEach(t => fbSubscribe(t));
 }
 
 // Sync indicator in header
@@ -1677,18 +1682,24 @@ function saveTrip(){
     const newT={id:gid(),name,currency,members:modalMembers,rates,inviteCode:inviteCode||gc(),createdAt:Date.now(),expenses:[],settlements:[]};
     S.trips.push(newT);S.curTrip=newT.id;
     try{localStorage.setItem(STORE,JSON.stringify(S));}catch(e){}
-    fbSaveTrip(newT); toast('帳本已建立 🎉','ok');
+    fbSaveTrip(newT); fbSubscribe(newT); toast('帳本已建立 🎉','ok');
   }
   save(); closeOv('ov-trip'); renderTrips(); refreshHome();
 }
 function deleteTrip(){
   const id=document.getElementById('trip-eid').value;
   const t=S.trips.find(t=>t.id===id); if(!t) return;
-  if(!confirm(`確定刪除「${t.name}」？所有記帳將一併刪除。`)) return;
+  if(!confirm(`確定從本機刪除「${t.name}」？\n（只刪除你自己的裝置，不影響其他成員）`)) return;
+  // 取消此帳本的 Firebase 監聽
+  const code = t.inviteCode;
+  if(_fbListeners[code]){ try{_fbListeners[code]();}catch(e){} delete _fbListeners[code]; }
   S.trips=S.trips.filter(t=>t.id!==id);
-  if(S.curTrip===id) S.curTrip=S.trips[0]?.id||null;
-  fbDeleteTrip(id);
-  save(); closeOv('ov-trip'); renderTrips(); refreshHome(); toast('帳本已刪除','');
+  // 帳本刪除後，切換到第一個有帳目的帳本，或第一個帳本
+  if(S.curTrip===id){
+    const next = S.trips.find(t=>t.expenses.length>0) || S.trips[0];
+    S.curTrip = next?.id || null;
+  }
+  save(); closeOv('ov-trip'); renderTrips(); refreshHome(); toast('帳本已從本機刪除','');
 }
 
 /* ═══════════════════════════
@@ -1722,6 +1733,7 @@ function importTrip(){
       } else {
         t.id=gid(); t.settlements=[];
         S.trips.push(t); S.curTrip=t.id; save();
+        fbSubscribe(t); fbSaveTrip(t);
         toast(`「${t.name}」已匯入！`,'ok');
       }
       renderTrips(); refreshHome(); document.getElementById('imp-code').value=''; return;
@@ -1862,7 +1874,7 @@ function chkUrl(){
     if(!t.name||!t.members) throw new Error('invalid');
     const ex=S.trips.find(e=>e.inviteCode===t.inviteCode);
     if(ex){ S.curTrip=ex.id; save(); toast('帳本已存在，已切換',''); }
-    else{ t.id=gid(); t.settlements=[]; S.trips.push(t); S.curTrip=t.id; save(); toast(`「${t.name}」已從分享連結匯入！`,'ok'); }
+    else{ t.id=gid(); t.settlements=[]; S.trips.push(t); S.curTrip=t.id; save(); fbSubscribe(t); fbSaveTrip(t); toast(`「${t.name}」已從分享連結匯入！`,'ok'); }
     history.replaceState(null,'',location.pathname);
   }catch(e){ toast('分享連結無效','err'); }
 }
@@ -1871,15 +1883,21 @@ function init(){
   if(S.settings?.dark){document.documentElement.setAttribute('data-theme','dark');document.getElementById('btn-dark').innerHTML='<i class="fas fa-sun"></i>';document.getElementById('sb-dark').innerHTML='<i class="fas fa-sun"></i>';}
   chkUrl();
   if(!S.trips.length) demo();
+  // 帳目孤兒保護：curTrip 不存在時，切換到有帳目的帳本或第一個
+  if(S.curTrip && !S.trips.find(t=>t.id===S.curTrip)){
+    const next = S.trips.find(t=>t.expenses&&t.expenses.length>0) || S.trips[0];
+    S.curTrip = next?.id || null;
+    save();
+    toast('帳本已自動切換','');
+  }
   refreshHome();
-  // Start Firebase sync (waits for SDK module to be ready)
+  // Start Firebase sync
   if(window._fbReady){
     fbListen(); setSyncStatus('on');
   } else {
     window.addEventListener('fb-ready', ()=>{
       fbListen(); setSyncStatus('on');
     });
-    // If firebase config is still placeholder, show offline status
     setTimeout(()=>{ if(!window._fbReady) setSyncStatus('off'); }, 3000);
   }
 }
