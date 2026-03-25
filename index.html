@@ -1062,14 +1062,8 @@ function togAllSplit(){
 let cspExcluded = {};
 
 function initCustomAmts(){
-  const n=eSplits.length||1;
-  // 預設空白（undefined = 空白輸入框）
-  eSplits.forEach(m=>{ if(!(m in customAmts)) customAmts[m]=undefined; });
-  Object.keys(customAmts).forEach(m=>{ if(!eSplits.includes(m)) delete customAmts[m]; });
-  eSplits.forEach(m=>{ if(!(m in customPct)) customPct[m]=undefined; });
-  Object.keys(customPct).forEach(m=>{ if(!eSplits.includes(m)) delete customPct[m]; });
-  // 重置排除狀態
-  cspExcluded = {};
+  // 每次開啟自訂面板都完全清空，不保留上一筆的金額
+  customAmts={}; customPct={}; cspExcluded={};
 }
 
 function openCustomPanel(){
@@ -1313,7 +1307,8 @@ function doSubmit(){
   try{localStorage.setItem(STORE,JSON.stringify(S));}catch(e){}
   fbSaveTrip(t);
   eAmt=''; document.getElementById('di').value='';
-  splitMode='even'; closeCustomPanel();
+  splitMode='even'; customAmts={}; customPct={}; cspExcluded={};
+  closeCustomPanel();
   document.getElementById('sm-even').classList.add('on');
   document.getElementById('sm-custom').classList.remove('on');
   updAmt(); renderSplitRow();
@@ -1579,14 +1574,41 @@ function drawTime(){
 }
 function drawPerson(){
   const t=tr(); if(!t) return;
-  const paid={}; t.members.forEach(m=>{paid[m]=0;});
-  t.expenses.forEach(e=>{paid[e.payer]=(paid[e.payer]||0)+toTWD(e.amount,e.currency,t.rates);});
-  const sorted=[...t.members].sort((a,b)=>(paid[b]||0)-(paid[a]||0));
-  const max=Math.max(...sorted.map(m=>paid[m]||0),1);
+  const paid={}; const owe={};
+  t.members.forEach(m=>{paid[m]=0; owe[m]=0;});
+  t.expenses.forEach(e=>{
+    const twd=toTWD(e.amount,e.currency,t.rates);
+    if(paid[e.payer]!==undefined) paid[e.payer]+=twd;
+    if(e.splitMode==='custom'){
+      Object.entries(e.customAmts||{}).forEach(([m,v])=>{
+        if(owe[m]!==undefined) owe[m]+=toTWD(v,e.currency,t.rates);
+      });
+    } else {
+      const share=twd/(e.splits.length||1);
+      e.splits.forEach(m=>{if(owe[m]!==undefined) owe[m]+=share;});
+    }
+  });
+  // 每人實際支出 = 應付金額（owe），依此排序
   const base=t.rates[t.currency]||1;
+  const sorted=[...t.members].sort((a,b)=>owe[b]-owe[a]);
+  const max=Math.max(...sorted.map(m=>owe[m]||0),1);
   document.getElementById('per-rank').innerHTML=sorted.map(m=>{
-    const p=paid[m]||0;const pct=Math.round(p/max*100);
-    return `<div class="pb-wrap"><div class="pb-hdr"><span class="pb-nm">${m}</span><span class="pb-a">${fmtC(p/base,t.currency)}</span></div><div class="pb-tr"><div class="pb-f" style="width:${pct}%"></div></div></div>`;
+    const o=owe[m]||0;
+    const p=paid[m]||0;
+    const net=Math.round((p-o)/base);
+    const netStr=net>0?`+${fmtC(net,t.currency)}`:net<0?fmtC(net,t.currency):'平衡';
+    const netColor=net>0?'var(--ok)':net<0?'var(--err)':'var(--t2)';
+    const pct=Math.round(o/max*100);
+    return `<div class="pb-wrap">
+      <div class="pb-hdr">
+        <span class="pb-nm">${m}</span>
+        <div style="text-align:right;">
+          <span class="pb-a">${fmtC(o/base,t.currency)}</span>
+          <span style="font-size:10px;color:${netColor};margin-left:6px;">${netStr}</span>
+        </div>
+      </div>
+      <div class="pb-tr"><div class="pb-f" style="width:${pct}%"></div></div>
+    </div>`;
   }).join('');
 }
 
