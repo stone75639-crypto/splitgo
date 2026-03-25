@@ -1691,9 +1691,16 @@ function saveTrip(){
     fbSaveTrip(newT); fbSubscribe(newT); toast('帳本已建立 🎉','ok');
   }
   try{localStorage.setItem(STORE,JSON.stringify(S));}catch(e){}
-  closeOv('ov-trip');
-  go('trips'); // 切到帳本管理頁，讓用戶立刻看到新帳本
-  toast('', ''); // clear
+  // 先關 overlay，再延遲一點讓 DOM 穩定後才切頁面並渲染
+  document.getElementById('ov-trip').classList.remove('open');
+  document.body.style.overflow='';
+  setTimeout(()=>{
+    renderTrips();
+    document.getElementById('scr-trips').classList.add('active');
+    document.querySelectorAll('.screen:not(#scr-trips)').forEach(s=>s.classList.remove('active'));
+    document.querySelectorAll('.nb,.sb-b').forEach(b=>b.classList.remove('on'));
+    document.querySelectorAll('[data-sc="trips"]').forEach(b=>b.classList.add('on'));
+  }, 50);
 }
 function deleteTrip(){
   const id=document.getElementById('trip-eid').value;
