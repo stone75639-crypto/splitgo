@@ -1690,7 +1690,10 @@ function saveTrip(){
     try{localStorage.setItem(STORE,JSON.stringify(S));}catch(e){}
     fbSaveTrip(newT); fbSubscribe(newT); toast('帳本已建立 🎉','ok');
   }
-  save(); closeOv('ov-trip'); renderTrips(); refreshHome();
+  try{localStorage.setItem(STORE,JSON.stringify(S));}catch(e){}
+  closeOv('ov-trip');
+  go('trips'); // 切到帳本管理頁，讓用戶立刻看到新帳本
+  toast('', ''); // clear
 }
 function deleteTrip(){
   const id=document.getElementById('trip-eid').value;
@@ -1888,7 +1891,11 @@ function init(){
   load();
   if(S.settings?.dark){document.documentElement.setAttribute('data-theme','dark');document.getElementById('btn-dark').innerHTML='<i class="fas fa-sun"></i>';document.getElementById('sb-dark').innerHTML='<i class="fas fa-sun"></i>';}
   chkUrl();
-  if(!S.trips.length) demo();
+  // 只有從未用過（localStorage 完全空白）才載入示範資料
+  if(!S.trips.length && !localStorage.getItem('sg_demo_shown')){
+    demo();
+    localStorage.setItem('sg_demo_shown','1');
+  }
   // 帳目孤兒保護：curTrip 不存在時，切換到有帳目的帳本或第一個
   if(S.trips.length > 0){
     if(!S.curTrip || !S.trips.find(t=>t.id===S.curTrip)){
