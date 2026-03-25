@@ -748,7 +748,7 @@ let modalMembers = [];
    ═══════════════════════════ */
 function save(){
   try{ localStorage.setItem(STORE, JSON.stringify(S)); }catch(e){}
-  fbSaveAll();
+  // Firebase 寫入只在明確操作時（新增/更新帳本、新增帳目）才呼叫 fbSaveTrip
 }
 function load(){
   try{ const r=localStorage.getItem(STORE); if(r){ const p=JSON.parse(r); S={...S,...p}; } }catch(e){}
@@ -780,9 +780,9 @@ function fbSaveTrip(trip){
 // 每個人的帳本獨立存在，不因他人刪除而消失
 function fbDeleteTrip(id){ /* 刻意不刪 Firebase，各自管各自 */ }
 
-// 儲存全部（初始化用）
+// 手動全量同步（匯入備份後使用）
 function fbSaveAll(){
-  S.trips.forEach(t => fbSaveTrip(t));
+  S.trips.forEach(t => { fbSaveTrip(t); fbSubscribe(t); });
 }
 
 // 監聽器管理：每個 inviteCode 有自己的監聽器
@@ -799,10 +799,11 @@ function fbSubscribe(trip){
     if(!remote) return;
     const local = S.trips.find(t => t.inviteCode === code);
     if(!local) return;
-    // 合併：筆數多的優先，同筆數則用較新的
-    const remoteLen = (remote.expenses||[]).length;
-    const localLen  = local.expenses.length;
-    if(remoteLen > localLen){
+    // 用 lastUpdated 時間戳記判斷哪個版本較新
+    // 這樣新增、刪除、編輯都能正確同步
+    const remoteTime = remote.lastUpdated || 0;
+    const localTime  = local.lastUpdated  || 0;
+    if(remoteTime > localTime){
       Object.assign(local, remote);
       try{ localStorage.setItem(STORE, JSON.stringify(S)); }catch(e){}
       toast('🔄 帳目已同步', '');
@@ -1308,6 +1309,7 @@ function doSubmit(){
     t.expenses.push(exp);
     toast('✅ 記帳成功！','ok');
   }
+  t.lastUpdated = Date.now(); // 更新時間戳記，讓其他裝置知道有新版本
   try{localStorage.setItem(STORE,JSON.stringify(S));}catch(e){}
   fbSaveTrip(t);
   eAmt=''; document.getElementById('di').value='';
@@ -1435,7 +1437,10 @@ function delExp(expId){
   const t=tr(); if(!t) return;
   if(!confirm('確定刪除這筆記帳？')) return;
   t.expenses=t.expenses.filter(e=>e.id!==expId);
-  save(); closeOv('ov-det'); renderList(); toast('已刪除','ok');
+  t.lastUpdated = Date.now(); // 更新時間戳記，讓刪除也能同步
+  try{localStorage.setItem(STORE,JSON.stringify(S));}catch(e){}
+  fbSaveTrip(t);
+  closeOv('ov-det'); renderList(); toast('已刪除','ok');
 }
 
 /* ═══════════════════════════
@@ -1676,6 +1681,7 @@ function saveTrip(){
   if(id){
     const t=S.trips.find(t=>t.id===id);
     if(t){t.name=name;t.currency=currency;t.members=modalMembers;t.rates=rates;
+      t.lastUpdated = Date.now();
       try{localStorage.setItem(STORE,JSON.stringify(S));}catch(e){}
       fbSaveTrip(t); toast('帳本已更新','ok');}
   } else {
@@ -1842,7 +1848,7 @@ function exportExcel(){
   URL.revokeObjectURL(url);
   toast('Excel 檔案已下載 📊','ok');
 }
-function handleFile(ev){const file=ev.target.files[0];if(!file)return;const r=new FileReader();r.onload=e=>{try{const d=JSON.parse(e.target.result);if(d.trips){S.trips=d.trips;S.curTrip=d.curTrip||(d.trips[0]?.id||null);save();renderTrips();refreshHome();toast('備份已匯入','ok');}else toast('格式錯誤','err');}catch(e){toast('解析失敗','err');}};r.readAsText(file);}
+function handleFile(ev){const file=ev.target.files[0];if(!file)return;const r=new FileReader();r.onload=e=>{try{const d=JSON.parse(e.target.result);if(d.trips){S.trips=d.trips;S.curTrip=d.curTrip||(d.trips[0]?.id||null);save();fbSaveAll();renderTrips();refreshHome();toast('備份已匯入','ok');}else toast('格式錯誤','err');}catch(e){toast('解析失敗','err');}};r.readAsText(file);}
 document.getElementById('btn-exp').addEventListener('click',exportB);
 document.getElementById('btn-imp').addEventListener('click',()=>document.getElementById('f-imp').click());
 
@@ -1884,11 +1890,13 @@ function init(){
   chkUrl();
   if(!S.trips.length) demo();
   // 帳目孤兒保護：curTrip 不存在時，切換到有帳目的帳本或第一個
-  if(S.curTrip && !S.trips.find(t=>t.id===S.curTrip)){
-    const next = S.trips.find(t=>t.expenses&&t.expenses.length>0) || S.trips[0];
-    S.curTrip = next?.id || null;
-    save();
-    toast('帳本已自動切換','');
+  if(S.trips.length > 0){
+    if(!S.curTrip || !S.trips.find(t=>t.id===S.curTrip)){
+      const next = S.trips.find(t=>t.expenses&&t.expenses.length>0) || S.trips[0];
+      S.curTrip = next?.id || null;
+      try{ localStorage.setItem(STORE, JSON.stringify(S)); }catch(e){}
+      if(S.curTrip) toast('帳本已自動切換','');
+    }
   }
   refreshHome();
   // Start Firebase sync
