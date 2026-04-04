@@ -145,8 +145,12 @@ input,select{font-family:inherit;outline:none;border:none;touch-action:manipulat
 /* Numpad (right side) — bigger */
 #numpad{
   flex-shrink:0;width:48%;background:var(--surf);border-radius:var(--r);border:1.5px solid var(--bdr);
-  padding:5px;display:grid;grid-template-columns:repeat(3,1fr);gap:4px;align-content:start;
+  padding:5px;display:grid;grid-template-columns:repeat(6,1fr);gap:4px;align-content:start;
 }
+/* 數字鍵 7~. 跨 2 格，保持原本 3 列外觀 */
+#numpad .np:not(.op):not(.ok){ grid-column: span 2; }
+/* 加減等號各佔 2 格 */
+#numpad .np.op, #numpad .np.ok{ grid-column: span 2; }
 .np{
   height:38px;border-radius:8px;background:var(--surf2);border:1px solid var(--bdr);
   font-size:clamp(16px,4.5vw,22px);;font-weight:500;color:var(--t1);display:flex;align-items:center;justify-content:center;
@@ -157,6 +161,8 @@ input,select{font-family:inherit;outline:none;border:none;touch-action:manipulat
 .np.wide{grid-column:span 2;}
 .np.del i{font-size:16px;color:var(--t2);}
 .np.ok{background:linear-gradient(135deg,var(--pr),var(--pr-d));color:#fff;border-color:var(--pr);font-size:14px;font-weight:700;}
+.np.op{background:var(--surf2);border:1px solid var(--bdr);color:var(--pr);font-size:20px;font-weight:700;}
+.np.op.active{background:var(--pr-l);border-color:var(--pr);}
 .np.ok:active{opacity:.85;}
 
 /* ── COMPACT ROWS ── */
@@ -506,9 +512,12 @@ select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns=
         <button class="np" data-n="1">1</button>
         <button class="np" data-n="2">2</button>
         <button class="np" data-n="3">3</button>
-        <button class="np wide" data-n="0">0</button>
+        <button class="np" data-n="0">0</button>
         <button class="np" data-n=".">.</button>
         <button class="np del" id="np-del"><i class="fas fa-delete-left"></i></button>
+        <button class="np op" id="np-plus" data-op="+">+</button>
+        <button class="np op" id="np-minus" data-op="−">−</button>
+        <button class="np ok" id="np-eq">=</button>
       </div>
     </div>
 
@@ -942,8 +951,13 @@ function refreshHome(){
 /* ── Amount ── */
 function updAmt(){
   const d=document.getElementById('amt-disp');
-  d.textContent = eAmt||'0';
-  d.classList.toggle('ph',!eAmt||eAmt==='0');
+  // 顯示加減狀態，例如 "100 +" 或 "100 + 50"
+  if(eOp){
+    d.textContent = (eAmt1||'0') + ' ' + eOp + (eAmt?' '+eAmt:'');
+  } else {
+    d.textContent = eAmt||'0';
+  }
+  d.classList.toggle('ph',!eAmt&&!eOp);
   const t=tr();
   const tEl=document.getElementById('amt-twd');
   if(t && eCur!=='TWD' && eAmt && parseFloat(eAmt)>0){
@@ -957,7 +971,24 @@ function renderCurRow(){
 }
 
 /* ── Numpad ── */
-// touchstart = 即時反應，不封鎖連按，touch-action:manipulation 已防縮放
+let eOp = null;   // 目前的運算符 '+' 或 '-'
+let eAmt1 = '';   // 按下運算符前的第一個數
+
+function clearOp(){
+  eOp=null; eAmt1='';
+  document.querySelectorAll('.np.op').forEach(b=>b.classList.remove('active'));
+}
+
+function calcResult(){
+  if(!eOp||eAmt1==='') return;
+  const a=parseFloat(eAmt1)||0;
+  const b=parseFloat(eAmt)||0;
+  const result=eOp==='+'? Math.round((a+b)*100)/100 : Math.round((a-b)*100)/100;
+  eAmt=result>0?String(result):'0';
+  clearOp();
+}
+
+// touchstart = 即時反應，不封鎖連按
 document.querySelectorAll('.np[data-n]').forEach(btn=>{
   const handler=(e)=>{
     e.preventDefault();
@@ -973,15 +1004,46 @@ document.querySelectorAll('.np[data-n]').forEach(btn=>{
   btn.addEventListener('touchstart', handler, {passive:false});
   btn.addEventListener('click', e=>{ if(e.isTrusted && e.pointerType!=='touch') handler(e); });
 });
+
 // Del button
 (()=>{
   const delBtn=document.getElementById('np-del');
   const delHandler=(e)=>{
     e.preventDefault();
+    if(eAmt===''&&eOp){ clearOp(); eAmt=eAmt1; eAmt1=''; updAmt(); return; }
     eAmt=eAmt.slice(0,-1); updAmt();
   };
   delBtn.addEventListener('touchstart', delHandler, {passive:false});
   delBtn.addEventListener('click', e=>{ if(e.isTrusted && e.pointerType!=='touch') delHandler(e); });
+})();
+
+// +/- buttons
+document.querySelectorAll('.np.op').forEach(btn=>{
+  const handler=(e)=>{
+    e.preventDefault();
+    const op=btn.dataset.op==='+'?'+':'-';
+    if(eOp&&eAmt!=='') calcResult(); // 連按先計算上一個
+    eAmt1=eAmt||'0';
+    eAmt='';
+    eOp=op;
+    document.querySelectorAll('.np.op').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    updAmt();
+  };
+  btn.addEventListener('touchstart', handler, {passive:false});
+  btn.addEventListener('click', e=>{ if(e.isTrusted && e.pointerType!=='touch') handler(e); });
+});
+
+// = button
+(()=>{
+  const eqBtn=document.getElementById('np-eq');
+  const eqHandler=(e)=>{
+    e.preventDefault();
+    if(eOp&&eAmt!=='') calcResult();
+    updAmt();
+  };
+  eqBtn.addEventListener('touchstart', eqHandler, {passive:false});
+  eqBtn.addEventListener('click', e=>{ if(e.isTrusted && e.pointerType!=='touch') eqHandler(e); });
 })();
 
 /* ── Category ── */
@@ -1306,7 +1368,7 @@ function doSubmit(){
   t.lastUpdated = Date.now(); // 更新時間戳記，讓其他裝置知道有新版本
   try{localStorage.setItem(STORE,JSON.stringify(S));}catch(e){}
   fbSaveTrip(t);
-  eAmt=''; document.getElementById('di').value='';
+  eAmt=''; clearOp(); document.getElementById('di').value='';
   splitMode='even'; customAmts={}; customPct={}; cspExcluded={};
   closeCustomPanel();
   document.getElementById('sm-even').classList.add('on');
@@ -1807,8 +1869,15 @@ function importTrip(){
     save();
     fbSubscribe(remote);
     document.getElementById('imp-code').value='';
-    renderTrips(); refreshHome();
     toast(`「${remote.name}」已加入！`,'ok');
+    // 延遲切換，確保 DOM 穩定
+    setTimeout(()=>{
+      renderTrips();
+      document.getElementById('scr-trips').classList.add('active');
+      document.querySelectorAll('.screen:not(#scr-trips)').forEach(s=>s.classList.remove('active'));
+      document.querySelectorAll('.nb,.sb-b').forEach(b=>b.classList.remove('on'));
+      document.querySelectorAll('[data-sc="trips"]').forEach(b=>b.classList.add('on'));
+    }, 50);
   }).catch(e=>{
     toast('查詢失敗，請檢查網路','err');
     console.warn('importTrip firebase error',e);
