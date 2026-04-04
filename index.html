@@ -1777,10 +1777,42 @@ function importTrip(){
       renderTrips(); refreshHome(); document.getElementById('imp-code').value=''; return;
     }catch(e){ toast('連結格式有誤','err'); return; }
   }
-  // Parse from invite code only
-  const found=S.trips.find(t=>t.inviteCode===v.toUpperCase());
-  if(found){S.curTrip=found.id;save();toast('已切換至：'+found.name,'ok');renderTrips();refreshHome();}
-  else toast('找不到此邀請碼','err');
+  // 先查本機
+  const code = v.toUpperCase();
+  const found = S.trips.find(t=>t.inviteCode===code);
+  if(found){
+    S.curTrip=found.id; save();
+    toast('已切換至：'+found.name,'ok');
+    renderTrips(); refreshHome();
+    return;
+  }
+  // 本機找不到 → 去 Firebase 查
+  if(!fbEnabled()){
+    toast('找不到此邀請碼（Firebase 未設定）','err');
+    return;
+  }
+  toast('查詢中...','');
+  const {db,ref,get} = window._fb;
+  get(ref(db, 'trips/trip_' + code)).then(snap=>{
+    const remote = snap.val();
+    if(!remote){
+      toast('找不到此邀請碼，請確認後再試','err');
+      return;
+    }
+    // 找到了，加入本機
+    remote.id = gid();
+    remote.settlements = [];
+    S.trips.push(remote);
+    S.curTrip = remote.id;
+    save();
+    fbSubscribe(remote);
+    document.getElementById('imp-code').value='';
+    renderTrips(); refreshHome();
+    toast(`「${remote.name}」已加入！`,'ok');
+  }).catch(e=>{
+    toast('查詢失敗，請檢查網路','err');
+    console.warn('importTrip firebase error',e);
+  });
 }
 function exportB(){const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`splitgo_${Date.now()}.json`;a.click();URL.revokeObjectURL(url);toast('備份已下載','ok');}
 
