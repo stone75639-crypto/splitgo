@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="SplitGo">
 <link rel="manifest" href="manifest.json">
-<title>SplitGo ⚡️</title>
+<title>SplitGo ⚡️</title><!-- app-version:11 -->
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -1679,16 +1679,18 @@ function drawPerson(){
    ═══════════════════════════ */
 function renderTrips(){
   const c=document.getElementById('trips-list');
-  if(!S.trips.length){c.innerHTML='';return;}
+  if(!c) return;
+  if(!S.trips||!S.trips.length){c.innerHTML='';return;}
   c.innerHTML=S.trips.map(t=>{
-    const twdTot=t.expenses.reduce((s,e)=>s+toTWD(e.amount,e.currency,t.rates),0);
-    const base=t.rates[t.currency]||1;
+    if(!t||!t.id) return '';
+    const twdTot=(t.expenses||[]).reduce((s,e)=>s+toTWD(e.amount,e.currency,t.rates),0);
+    const base=(t.rates&&t.rates[t.currency])||1;
     const isAct=t.id===S.curTrip;
     return `<div class="tc${isAct?' act':''}" onclick="setAct('${t.id}')">
       <div class="tci">✈️</div>
-      <div class="tcinf"><div class="tcnm">${t.name}</div><div class="tcm">${t.members.join(' · ')} · ${t.expenses.length} 筆</div></div>
+      <div class="tcinf"><div class="tcnm">${t.name||'未命名'}</div><div class="tcm">${(t.members||[]).join(' · ')} · ${(t.expenses||[]).length} 筆</div></div>
       <div class="tcr">
-        <div class="tctot">${fmtC(twdTot/base,t.currency)}</div>
+        <div class="tctot">${fmtC(twdTot/base,t.currency||'TWD')}</div>
         <div style="font-size:9.5px;color:var(--t2);margin-top:2px;">${isAct?'📌 目前':''}</div>
         <button class="btn btn-out btn-sm" style="margin-top:4px;" onclick="event.stopPropagation();openEdit('${t.id}')">設定</button>
       </div>
@@ -1863,21 +1865,31 @@ function importTrip(){
     }
     // 找到了，加入本機
     remote.id = gid();
-    remote.settlements = [];
+    remote.settlements = remote.settlements||[];
+    remote.expenses = remote.expenses||[];
     S.trips.push(remote);
     S.curTrip = remote.id;
-    save();
+    try{ localStorage.setItem(STORE, JSON.stringify(S)); }catch(ex){}
     fbSubscribe(remote);
-    document.getElementById('imp-code').value='';
-    toast(`「${remote.name}」已加入！`,'ok');
-    // 延遲切換，確保 DOM 穩定
+    const inp=document.getElementById('imp-code');
+    if(inp) inp.value='';
+    const tripName=remote.name||'新帳本';
+    // 診斷：確認資料已存入
+    toast(`已加入：${tripName}，共${S.trips.length}個帳本`,'ok',4000);
+    // 強制切換到帳本頁並重新渲染
     setTimeout(()=>{
-      renderTrips();
-      document.getElementById('scr-trips').classList.add('active');
-      document.querySelectorAll('.screen:not(#scr-trips)').forEach(s=>s.classList.remove('active'));
+      // 強制重新渲染帳本列表
+      const c=document.getElementById('trips-list');
+      if(c){
+        c.innerHTML=''; // 先清空
+        renderTrips();  // 再重繪
+      }
+      document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
       document.querySelectorAll('.nb,.sb-b').forEach(b=>b.classList.remove('on'));
+      const tripsScr=document.getElementById('scr-trips');
+      if(tripsScr) tripsScr.classList.add('active');
       document.querySelectorAll('[data-sc="trips"]').forEach(b=>b.classList.add('on'));
-    }, 50);
+    }, 200);
   }).catch(e=>{
     toast('查詢失敗，請檢查網路','err');
     console.warn('importTrip firebase error',e);
